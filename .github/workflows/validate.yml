@@ -1,0 +1,26 @@
+name: Validate module
+
+on:
+  push:
+    branches: [ master ]
+  pull_request:
+    branches: [ master ]
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+    - name: Setup Terraform CLI
+      uses: hashicorp/setup-terraform@5e8dbf3c6d9deaf4193ca7a8fb23f2ac83bb6c85 # v4.0.0
+
+    - name: terraform fmt
+      run: terraform fmt -check -recursive
+
+    - name: terraform init
+      run: terraform init -backend=false
+
+    - name: terraform validate
+      run: terraform validate
