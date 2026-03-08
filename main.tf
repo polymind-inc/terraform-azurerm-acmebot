@@ -120,6 +120,21 @@ resource "azurerm_function_app_flex_consumption" "function" {
   }
 }
 
+resource "azapi_resource" "deployment" {
+  name      = "onedeploy"
+  parent_id = azurerm_function_app_flex_consumption.function.id
+  type      = "Microsoft.Web/sites/extensions@2025-03-01"
+
+  body = {
+    properties = {
+      packageUri  = "https://stacmebotprod.blob.core.windows.net/keyvault-acmebot/v5/latest.zip"
+      remoteBuild = false
+    }
+  }
+
+  schema_validation_enabled = false
+}
+
 data "azurerm_function_app_host_keys" "function" {
   count = var.export_api_key ? 1 : 0
 
@@ -127,6 +142,7 @@ data "azurerm_function_app_host_keys" "function" {
   resource_group_name = var.resource_group_name
 
   depends_on = [
-    azurerm_function_app_flex_consumption.function
+    azurerm_function_app_flex_consumption.function,
+    azapi_resource.deployment
   ]
 }
