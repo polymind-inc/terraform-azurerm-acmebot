@@ -35,6 +35,7 @@ module "acmebot" {
 ## Notes
 
 - Secret inputs are marked as sensitive, but they are still stored in Terraform state when used to configure the Function App.
+- `app_base_name` must contain only letters, numbers, and hyphens; end with a letter or number; and keep the generated `func-...` Function App name within 32 characters.
 - Flex Consumption does not support `:` in app setting keys, so the module uses `Acmebot__...` keys for nested configuration.
 - `additional_app_settings` cannot override reserved `Acmebot__*` settings or `MICROSOFT_PROVIDER_AUTHENTICATION_SECRET`.
 - Set `acmebot_version` to a major version such as `v5` to deploy `v5/latest.zip`, or to a specific version such as `v5.0.1` to deploy `v5/5.0.1.zip`.
