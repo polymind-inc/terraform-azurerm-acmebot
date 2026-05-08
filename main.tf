@@ -127,7 +127,7 @@ resource "azapi_resource" "deployment" {
 
   body = {
     properties = {
-      packageUri  = "https://stacmebotprod.blob.core.windows.net/keyvault-acmebot/v5/latest.zip"
+      packageUri  = local.acmebot_package_uri
       remoteBuild = false
     }
   }

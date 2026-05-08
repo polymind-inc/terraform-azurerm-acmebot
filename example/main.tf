@@ -153,6 +153,7 @@ module "acmebot" {
   location               = azurerm_resource_group.default.location
   mail_address           = "YOUR-EMAIL-ADDRESS"
   vault_uri              = azurerm_key_vault.default.vault_uri
+  acmebot_version        = "v5"
   maximum_instance_count = 50
   instance_memory_in_mb  = 2048
 
