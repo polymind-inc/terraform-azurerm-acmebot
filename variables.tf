@@ -3,8 +3,8 @@ variable "app_base_name" {
   description = "The name of the App base to create."
 
   validation {
-    condition     = length(regexall("[A-Za-z0-9]", var.app_base_name)) > 0 && length("func-${var.app_base_name}") <= 32
-    error_message = "app_base_name must contain at least one alphanumeric character and keep the generated function app name within 32 characters."
+    condition     = can(regex("^[A-Za-z0-9-]+$", var.app_base_name)) && can(regex("[A-Za-z0-9]$", var.app_base_name)) && length("func-${var.app_base_name}") <= 32
+    error_message = "app_base_name must contain only letters, numbers, and hyphens; end with a letter or number; and keep the generated function app name within 32 characters."
   }
 }
 
