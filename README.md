@@ -17,6 +17,7 @@ module "acmebot" {
   location              = azurerm_resource_group.default.location
   mail_address          = "YOUR-EMAIL-ADDRESS"
   vault_uri             = azurerm_key_vault.default.vault_uri
+  acmebot_version       = "v5"
 
   azure_dns = {
     subscription_id = data.azurerm_client_config.current.subscription_id
@@ -36,6 +37,7 @@ module "acmebot" {
 - Secret inputs are marked as sensitive, but they are still stored in Terraform state when used to configure the Function App.
 - Flex Consumption does not support `:` in app setting keys, so the module uses `Acmebot__...` keys for nested configuration.
 - `additional_app_settings` cannot override reserved `Acmebot__*` settings or `MICROSOFT_PROVIDER_AUTHENTICATION_SECRET`.
+- Set `acmebot_version` to a major version such as `v5` to deploy `v5/latest.zip`, or to a specific version such as `v5.0.1` to deploy `v5/5.0.1.zip`.
 - By default the module generates a deterministic storage account name with a hash suffix. To preserve an existing name during upgrades, set `storage_account_name` explicitly.
 - The `api_key` output is disabled by default. Set `export_api_key = true` only when you need Terraform to read and expose the default host key.
 - You can tune Flex Consumption behavior with `maximum_instance_count`, `instance_memory_in_mb`, and `public_network_access_enabled`.

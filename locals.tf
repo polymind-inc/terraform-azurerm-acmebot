@@ -2,6 +2,11 @@
 locals {
   function_app_name = "func-${var.app_base_name}"
 
+  acmebot_release_version = replace(var.acmebot_version, "/^v/", "")
+  acmebot_major_version   = "v${split(".", local.acmebot_release_version)[0]}"
+  acmebot_package_name    = var.acmebot_version == local.acmebot_major_version ? "latest" : local.acmebot_release_version
+  acmebot_package_uri     = "https://stacmebotprod.blob.core.windows.net/acmebot/${local.acmebot_major_version}/${local.acmebot_package_name}.zip"
+
   storage_account_name = coalesce(
     var.storage_account_name,
     format(

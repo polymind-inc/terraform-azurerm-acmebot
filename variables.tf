@@ -104,6 +104,17 @@ variable "export_api_key" {
 }
 
 # Acmebot Configuration
+variable "acmebot_version" {
+  type        = string
+  description = "Acmebot package version to deploy. Use a major version like v5 for the latest package, or a specific version like v5.0.1."
+  default     = "v5"
+
+  validation {
+    condition     = can(regex("^v[0-9]+(\\.[0-9]+\\.[0-9]+)?$", var.acmebot_version))
+    error_message = "acmebot_version must be a major version like v5, or a specific version like v5.0.1."
+  }
+}
+
 variable "vault_uri" {
   type        = string
   description = "URL of the Key Vault to store the issued certificate."
