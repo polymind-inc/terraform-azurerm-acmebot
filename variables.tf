@@ -69,6 +69,40 @@ variable "storage_account_name" {
   }
 }
 
+variable "storage_public_network_access_enabled" {
+  type        = bool
+  description = "Whether public network access is enabled for the Storage Account."
+  default     = true
+}
+
+variable "storage_network_rules" {
+  type = object({
+    default_action             = string
+    bypass                     = optional(list(string), ["AzureServices"])
+    ip_rules                   = optional(list(string), [])
+    virtual_network_subnet_ids = optional(list(string), [])
+  })
+  description = "Optional network rules for the Storage Account."
+  default     = null
+
+  validation {
+    condition     = var.storage_network_rules == null || contains(["Allow", "Deny"], var.storage_network_rules.default_action)
+    error_message = "storage_network_rules.default_action must be either Allow or Deny."
+  }
+}
+
+variable "storage_private_endpoints" {
+  type = map(object({
+    name                            = optional(string)
+    subnet_id                       = string
+    private_dns_zone_ids            = optional(list(string), [])
+    private_service_connection_name = optional(string)
+    subresource_names               = optional(list(string), ["blob"])
+  }))
+  description = "Private Endpoints to create for the Storage Account. Use private_dns_zone_ids to attach existing Private DNS zones."
+  default     = {}
+}
+
 variable "public_network_access_enabled" {
   type        = bool
   description = "Whether public network access is enabled for the Function App."

@@ -11,6 +11,44 @@ resource "azurerm_storage_account" "storage" {
   account_replication_type        = "LRS"
   allow_nested_items_to_be_public = false
   min_tls_version                 = "TLS1_2"
+  public_network_access_enabled   = var.storage_public_network_access_enabled
+
+  dynamic "network_rules" {
+    for_each = var.storage_network_rules != null ? [var.storage_network_rules] : []
+
+    content {
+      default_action             = network_rules.value.default_action
+      bypass                     = network_rules.value.bypass
+      ip_rules                   = network_rules.value.ip_rules
+      virtual_network_subnet_ids = network_rules.value.virtual_network_subnet_ids
+    }
+  }
+}
+
+resource "azurerm_private_endpoint" "storage" {
+  for_each = var.storage_private_endpoints
+
+  name                = coalesce(each.value.name, "pep-${local.storage_account_name}-${each.key}")
+  resource_group_name = var.resource_group_name
+  location            = var.location
+  tags                = var.additional_tags
+  subnet_id           = each.value.subnet_id
+
+  private_service_connection {
+    name                           = coalesce(each.value.private_service_connection_name, "psc-${local.storage_account_name}-${each.key}")
+    private_connection_resource_id = azurerm_storage_account.storage.id
+    is_manual_connection           = false
+    subresource_names              = each.value.subresource_names
+  }
+
+  dynamic "private_dns_zone_group" {
+    for_each = length(each.value.private_dns_zone_ids) != 0 ? [each.value.private_dns_zone_ids] : []
+
+    content {
+      name                 = "default"
+      private_dns_zone_ids = private_dns_zone_group.value
+    }
+  }
 }
 
 resource "random_string" "deployment_container_suffix" {

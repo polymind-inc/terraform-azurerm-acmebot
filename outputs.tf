@@ -13,6 +13,11 @@ output "allowed_ip_addresses" {
   description = "IP addresses that are allowed to access the Acmebot UI."
 }
 
+output "storage_account_id" {
+  value       = azurerm_storage_account.storage.id
+  description = "Created Storage Account ID."
+}
+
 output "api_key" {
   value       = var.export_api_key ? data.azurerm_function_app_host_keys.function[0].default_function_key : null
   description = "Created Default Functions API Key. Null unless export_api_key is enabled."
