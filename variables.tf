@@ -79,11 +79,6 @@ variable "vnet_integration_subnet_id" {
   type        = string
   description = "Existing subnet resource ID to use for VNET integration."
   default     = null
-
-  validation {
-    condition     = var.vnet_integration_subnet_id == null || can(regex("^/subscriptions/[^/]+/resourceGroups/[^/]+/providers/Microsoft\\.Network/virtualNetworks/[^/]+/subnets/[^/]+/?$", var.vnet_integration_subnet_id))
-    error_message = "vnet_integration_subnet_id must be a valid Azure subnet resource ID."
-  }
 }
 
 variable "maximum_instance_count" {
