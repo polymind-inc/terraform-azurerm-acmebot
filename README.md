@@ -25,6 +25,9 @@ module "acmebot" {
 
   maximum_instance_count = 50
   instance_memory_in_mb  = 2048
+
+  # VNET integration
+  vnet_integration_subnet_id = "/subscriptions/xxxx/resourceGroups/rg-network/providers/Microsoft.Network/virtualNetworks/vnet-acmebot/subnets/snet-acmebot"
 }
 ```
 
@@ -71,6 +74,7 @@ If you prefer to manage Private Endpoints outside this module, use the `storage_
 - The `api_key` output is disabled by default. Set `export_api_key = true` only when you need Terraform to read and expose the default host key.
 - You can tune Flex Consumption behavior with `maximum_instance_count`, `instance_memory_in_mb`, and `public_network_access_enabled`.
 - You can tune Storage Account network exposure with `storage_public_network_access_enabled`, `storage_network_rules`, and `storage_private_endpoints`.
+- VNET integration can be enabled by setting `vnet_integration_subnet_id`.
 
 ## License
 

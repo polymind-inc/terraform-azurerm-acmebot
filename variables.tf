@@ -109,6 +109,12 @@ variable "public_network_access_enabled" {
   default     = null
 }
 
+variable "vnet_integration_subnet_id" {
+  type        = string
+  description = "Existing subnet resource ID to use for VNET integration."
+  default     = null
+}
+
 variable "maximum_instance_count" {
   type        = number
   description = "Optional maximum scale-out instance count for the Function App."
