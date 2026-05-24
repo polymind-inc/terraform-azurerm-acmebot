@@ -26,10 +26,8 @@ module "acmebot" {
   maximum_instance_count = 50
   instance_memory_in_mb  = 2048
 
-  # VNET integration (either subnet_id directly, or vnet_id + subnet_name)
-  vnet_integration_subnet_id   = "/subscriptions/xxxx/resourceGroups/rg-network/providers/Microsoft.Network/virtualNetworks/vnet-acmebot/subnets/snet-acmebot"
-  # vnet_integration_vnet_id   = "/subscriptions/xxxx/resourceGroups/rg-network/providers/Microsoft.Network/virtualNetworks/vnet-acmebot"
-  # vnet_integration_subnet_name = "snet-acmebot"
+  # VNET integration
+  vnet_integration_subnet_id = "/subscriptions/xxxx/resourceGroups/rg-network/providers/Microsoft.Network/virtualNetworks/vnet-acmebot/subnets/snet-acmebot"
 }
 ```
 
@@ -47,8 +45,7 @@ module "acmebot" {
 - By default the module generates a deterministic storage account name with a hash suffix. To preserve an existing name during upgrades, set `storage_account_name` explicitly.
 - The `api_key` output is disabled by default. Set `export_api_key = true` only when you need Terraform to read and expose the default host key.
 - You can tune Flex Consumption behavior with `maximum_instance_count`, `instance_memory_in_mb`, and `public_network_access_enabled`.
-- VNET integration can be enabled with `vnet_integration_subnet_id` directly, or by supplying `vnet_integration_vnet_id` with `vnet_integration_subnet_name` (default: `default`).
-- If both `vnet_integration_subnet_id` and `vnet_integration_vnet_id` are set, `vnet_integration_subnet_id` takes precedence.
+- VNET integration can be enabled by setting `vnet_integration_subnet_id`.
 
 ## License
 

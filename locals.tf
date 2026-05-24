@@ -16,13 +16,6 @@ locals {
     )
   )
 
-  vnet_integration_vnet_id = var.vnet_integration_vnet_id != null ? trimsuffix(var.vnet_integration_vnet_id, "/") : null
-
-  vnet_integration_subnet_id = coalesce(
-    var.vnet_integration_subnet_id,
-    local.vnet_integration_vnet_id != null ? "${local.vnet_integration_vnet_id}/subnets/${var.vnet_integration_subnet_name}" : null
-  )
-
   deployment_container_name = format(
     "app-package-%s-%s",
     trim(substr(replace(replace(lower(local.function_app_name), "/[^a-z0-9-]/", ""), "/-+/", "-"), 0, 43), "-"),

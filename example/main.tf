@@ -157,8 +157,6 @@ module "acmebot" {
   maximum_instance_count = 50
   instance_memory_in_mb  = 2048
   # vnet_integration_subnet_id = "/subscriptions/xxxx/resourceGroups/rg-network/providers/Microsoft.Network/virtualNetworks/vnet-acmebot/subnets/snet-acmebot"
-  # vnet_integration_vnet_id   = "/subscriptions/xxxx/resourceGroups/rg-network/providers/Microsoft.Network/virtualNetworks/vnet-acmebot"
-  # vnet_integration_subnet_name = "snet-acmebot"
 
   azure_dns = {
     subscription_id = data.azurerm_client_config.current.subscription_id

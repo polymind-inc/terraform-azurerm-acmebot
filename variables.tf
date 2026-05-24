@@ -86,28 +86,6 @@ variable "vnet_integration_subnet_id" {
   }
 }
 
-variable "vnet_integration_vnet_id" {
-  type        = string
-  description = "Existing virtual network resource ID used to derive a subnet ID for VNET integration."
-  default     = null
-
-  validation {
-    condition     = var.vnet_integration_vnet_id == null || can(regex("^/subscriptions/[^/]+/resourceGroups/[^/]+/providers/Microsoft\\.Network/virtualNetworks/[^/]+/?$", var.vnet_integration_vnet_id))
-    error_message = "vnet_integration_vnet_id must be a valid Azure virtual network resource ID."
-  }
-}
-
-variable "vnet_integration_subnet_name" {
-  type        = string
-  description = "Subnet name appended to vnet_integration_vnet_id when vnet_integration_subnet_id is not set."
-  default     = "default"
-
-  validation {
-    condition     = can(regex("^[A-Za-z0-9][A-Za-z0-9._-]{0,79}$", var.vnet_integration_subnet_name))
-    error_message = "vnet_integration_subnet_name must be 1-80 characters and contain only letters, numbers, dots, underscores, or hyphens."
-  }
-}
-
 variable "maximum_instance_count" {
   type        = number
   description = "Optional maximum scale-out instance count for the Function App."
