@@ -52,11 +52,11 @@ locals {
     { for key, private_endpoint in azurerm_private_endpoint.function_app_unmanaged_dns_zone_groups : key => private_endpoint.name },
   )
 
-  acmebot_major_version = "v${split(".", var.acmebot_version)[0]}"
-  acmebot_package_uri   = "https://stacmebotprod.blob.core.windows.net/acmebot/${local.acmebot_major_version}/${var.acmebot_version}.zip"
+  acmebot_major_version = "v${split(".", var.acmebot.version)[0]}"
+  acmebot_package_uri   = "https://stacmebotprod.blob.core.windows.net/acmebot/${local.acmebot_major_version}/${var.acmebot.version}.zip"
 
   storage_account_name = coalesce(
-    var.storage_account_name,
+    var.storage_account.name,
     format(
       "st%s%s",
       substr(replace(lower(var.name), "/[^a-z0-9]/", ""), 0, 16),
@@ -70,75 +70,75 @@ locals {
     random_string.deployment_container_suffix.result,
   )
 
-  external_account_binding = var.external_account_binding != null ? {
-    "Acmebot__ExternalAccountBinding__KeyId"     = var.external_account_binding.key_id
-    "Acmebot__ExternalAccountBinding__HmacKey"   = var.external_account_binding.hmac_key
-    "Acmebot__ExternalAccountBinding__Algorithm" = var.external_account_binding.algorithm
+  external_account_binding = var.acmebot.external_account_binding != null ? {
+    "Acmebot__ExternalAccountBinding__KeyId"     = var.acmebot.external_account_binding.key_id
+    "Acmebot__ExternalAccountBinding__HmacKey"   = var.acmebot.external_account_binding.hmac_key
+    "Acmebot__ExternalAccountBinding__Algorithm" = var.acmebot.external_account_binding.algorithm
   } : {}
 
-  azure_dns = var.azure_dns != null ? {
-    "Acmebot__AzureDns__SubscriptionId" = var.azure_dns.subscription_id
+  azure_dns = var.acmebot.dns_providers.azure_dns != null ? {
+    "Acmebot__AzureDns__SubscriptionId" = var.acmebot.dns_providers.azure_dns.subscription_id
   } : {}
 
-  azure_private_dns = var.azure_private_dns != null ? {
-    "Acmebot__AzurePrivateDns__SubscriptionId" = var.azure_private_dns.subscription_id
+  azure_private_dns = var.acmebot.dns_providers.azure_private_dns != null ? {
+    "Acmebot__AzurePrivateDns__SubscriptionId" = var.acmebot.dns_providers.azure_private_dns.subscription_id
   } : {}
 
-  cloudflare = var.cloudflare != null ? {
-    "Acmebot__Cloudflare__ApiToken" = var.cloudflare.api_token
+  cloudflare = var.acmebot.dns_providers.cloudflare != null ? {
+    "Acmebot__Cloudflare__ApiToken" = var.acmebot.dns_providers.cloudflare.api_token
   } : {}
 
-  custom_dns = var.custom_dns != null ? {
-    "Acmebot__CustomDns__Endpoint"           = var.custom_dns.endpoint
-    "Acmebot__CustomDns__ApiKey"             = var.custom_dns.api_key
-    "Acmebot__CustomDns__ApiKeyHeaderName"   = var.custom_dns.api_key_header_name
-    "Acmebot__CustomDns__PropagationSeconds" = var.custom_dns.propagation_seconds
+  custom_dns = var.acmebot.dns_providers.custom_dns != null ? {
+    "Acmebot__CustomDns__Endpoint"           = var.acmebot.dns_providers.custom_dns.endpoint
+    "Acmebot__CustomDns__ApiKey"             = var.acmebot.dns_providers.custom_dns.api_key
+    "Acmebot__CustomDns__ApiKeyHeaderName"   = var.acmebot.dns_providers.custom_dns.api_key_header_name
+    "Acmebot__CustomDns__PropagationSeconds" = var.acmebot.dns_providers.custom_dns.propagation_seconds
   } : {}
 
-  dns_made_easy = var.dns_made_easy != null ? {
-    "Acmebot__DnsMadeEasy__ApiKey"    = var.dns_made_easy.api_key
-    "Acmebot__DnsMadeEasy__SecretKey" = var.dns_made_easy.secret_key
+  dns_made_easy = var.acmebot.dns_providers.dns_made_easy != null ? {
+    "Acmebot__DnsMadeEasy__ApiKey"    = var.acmebot.dns_providers.dns_made_easy.api_key
+    "Acmebot__DnsMadeEasy__SecretKey" = var.acmebot.dns_providers.dns_made_easy.secret_key
   } : {}
 
-  gandi = var.gandi != null ? {
-    "Acmebot__Gandi__ApiKey" = var.gandi.api_key
+  gandi = var.acmebot.dns_providers.gandi != null ? {
+    "Acmebot__Gandi__ApiKey" = var.acmebot.dns_providers.gandi.api_key
   } : {}
 
-  go_daddy = var.go_daddy != null ? {
-    "Acmebot__GoDaddy__ApiKey"    = var.go_daddy.api_key
-    "Acmebot__GoDaddy__ApiSecret" = var.go_daddy.api_secret
+  go_daddy = var.acmebot.dns_providers.go_daddy != null ? {
+    "Acmebot__GoDaddy__ApiKey"    = var.acmebot.dns_providers.go_daddy.api_key
+    "Acmebot__GoDaddy__ApiSecret" = var.acmebot.dns_providers.go_daddy.api_secret
   } : {}
 
-  google_dns = var.google_dns != null ? {
-    "Acmebot__GoogleDns__KeyFile64" = var.google_dns.key_file64
+  google_dns = var.acmebot.dns_providers.google_dns != null ? {
+    "Acmebot__GoogleDns__KeyFile64" = var.acmebot.dns_providers.google_dns.key_file64
   } : {}
 
-  route_53 = var.route_53 != null ? {
-    "Acmebot__Route53__AccessKey" = var.route_53.access_key
-    "Acmebot__Route53__SecretKey" = var.route_53.secret_key
-    "Acmebot__Route53__Region"    = var.route_53.region
+  route_53 = var.acmebot.dns_providers.route_53 != null ? {
+    "Acmebot__Route53__AccessKey" = var.acmebot.dns_providers.route_53.access_key
+    "Acmebot__Route53__SecretKey" = var.acmebot.dns_providers.route_53.secret_key
+    "Acmebot__Route53__Region"    = var.acmebot.dns_providers.route_53.region
   } : {}
 
-  trans_ip = var.trans_ip != null ? {
-    "Acmebot__TransIp__CustomerName"   = var.trans_ip.customer_name
-    "Acmebot__TransIp__PrivateKeyName" = var.trans_ip.private_key_name
+  trans_ip = var.acmebot.dns_providers.trans_ip != null ? {
+    "Acmebot__TransIp__CustomerName"   = var.acmebot.dns_providers.trans_ip.customer_name
+    "Acmebot__TransIp__PrivateKeyName" = var.acmebot.dns_providers.trans_ip.private_key_name
   } : {}
 
-  webhook_url = var.webhook_url != null ? {
-    "Acmebot__Webhook" = var.webhook_url
+  webhook_url = var.acmebot.webhook_url != null ? {
+    "Acmebot__Webhook" = var.acmebot.webhook_url
   } : {}
 
-  acmebot_managed_identity = var.acmebot_managed_identity_client_id != null ? {
-    "Acmebot__ManagedIdentityClientId" = var.acmebot_managed_identity_client_id
+  acmebot_managed_identity = var.acmebot.managed_identity_client_id != null ? {
+    "Acmebot__ManagedIdentityClientId" = var.acmebot.managed_identity_client_id
   } : {}
 
   common = {
-    "Acmebot__Contacts"           = var.mail_address
-    "Acmebot__Endpoint"           = var.acme_endpoint
-    "Acmebot__VaultBaseUrl"       = var.vault_uri
-    "Acmebot__Environment"        = var.environment
-    "Acmebot__MitigateChainOrder" = var.mitigate_chain_order
-    "Acmebot__AppRoleRequired"    = var.app_role_required
+    "Acmebot__Contacts"           = var.acmebot.mail_address
+    "Acmebot__Endpoint"           = var.acmebot.acme_endpoint
+    "Acmebot__VaultBaseUrl"       = var.acmebot.vault_uri
+    "Acmebot__Environment"        = var.acmebot.environment
+    "Acmebot__MitigateChainOrder" = var.acmebot.mitigate_chain_order
+    "Acmebot__AppRoleRequired"    = var.acmebot.app_role_required
   }
 
   acmebot_app_settings = merge(

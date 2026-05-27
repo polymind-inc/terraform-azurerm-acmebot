@@ -28,7 +28,14 @@ variable "auth_settings" {
       tenant_auth_endpoint = string
     })
   })
-  description = "Authentication settings for the function app"
+  description = <<DESCRIPTION
+Controls App Service Authentication for the Function App.
+
+- `enabled` - (Required) Whether App Service Authentication is enabled.
+- `active_directory.client_id` - (Required) The Microsoft Entra application client ID.
+- `active_directory.client_secret` - (Required) The Microsoft Entra application client secret. This value is stored in Terraform state.
+- `active_directory.tenant_auth_endpoint` - (Required) The tenant-specific Microsoft Entra authorization endpoint.
+DESCRIPTION
   default     = null
   sensitive   = true
 }
@@ -46,7 +53,20 @@ variable "diagnostic_settings" {
     event_hub_name                           = optional(string, null)
     marketplace_partner_resource_id          = optional(string, null)
   }))
-  description = "A map of diagnostic settings to create on the Function App. The map key is deliberately arbitrary to avoid issues where map keys may be unknown at plan time."
+  description = <<DESCRIPTION
+A map of diagnostic settings to create on the Function App. The map key is deliberately arbitrary to avoid issues where map keys may be unknown at plan time.
+
+- `name` - (Optional) The name of the diagnostic setting. One will be generated if not set.
+- `log_categories` - (Optional) A set of log categories to send to the destination.
+- `log_groups` - (Optional) A set of log category groups to send to the destination. Defaults to `["allLogs"]`.
+- `metric_categories` - (Optional) A set of metric categories to send to the destination. Defaults to `["AllMetrics"]`.
+- `log_analytics_destination_type` - (Optional) The destination table type for Log Analytics. Possible values are `Dedicated` and `AzureDiagnostics`. Defaults to `Dedicated`.
+- `workspace_resource_id` - (Optional) The resource ID of the Log Analytics workspace destination.
+- `storage_account_resource_id` - (Optional) The resource ID of the Storage Account destination.
+- `event_hub_authorization_rule_resource_id` - (Optional) The resource ID of the Event Hub authorization rule destination.
+- `event_hub_name` - (Optional) The Event Hub name. When unset, the default Event Hub is used.
+- `marketplace_partner_resource_id` - (Optional) The full ARM resource ID of the Marketplace partner destination.
+DESCRIPTION
   default     = {}
   nullable    = false
 
@@ -104,7 +124,25 @@ variable "private_endpoints" {
       principal_type                         = optional(string, null)
     })), {})
   }))
-  description = "A map of private endpoints to create for the Function App. The map key is deliberately arbitrary to avoid issues where map keys may be unknown at plan time."
+  description = <<DESCRIPTION
+A map of private endpoints to create for the Function App. The map key is deliberately arbitrary to avoid issues where map keys may be unknown at plan time.
+
+- `name` - (Optional) The name of the private endpoint. One will be generated if not set.
+- `subnet_resource_id` - (Required) The resource ID of the subnet where the private endpoint will be created.
+- `subresource_name` - (Optional) The Function App subresource name. Defaults to `sites`.
+- `private_dns_zone_group_name` - (Optional) The private DNS zone group name. Defaults to `default`.
+- `private_dns_zone_resource_ids` - (Optional) A set of private DNS zone resource IDs to associate with the private endpoint.
+- `application_security_group_associations` - (Optional) A map of application security group resource IDs to associate with the private endpoint.
+- `private_service_connection_name` - (Optional) The private service connection name. One will be generated if not set.
+- `network_interface_name` - (Optional) The private endpoint network interface name.
+- `location` - (Optional) The private endpoint location. Defaults to `var.location`.
+- `resource_group_name` - (Optional) The private endpoint resource group name. Defaults to `var.resource_group_name`.
+- `inherit_lock` - (Optional) Whether this private endpoint inherits `var.lock` when no endpoint-specific lock is set. Defaults to `true`.
+- `lock` - (Optional) The lock to apply to this private endpoint.
+- `tags` - (Optional) Tags to apply to this private endpoint. When unset, `var.tags` is inherited.
+- `ip_configurations` - (Optional) A map of static IP configurations for the private endpoint.
+- `role_assignments` - (Optional) A map of role assignments to create on this private endpoint.
+DESCRIPTION
   default     = {}
   nullable    = false
 
@@ -161,7 +199,7 @@ variable "private_endpoints" {
 
 variable "additional_app_settings" {
   type        = map(string)
-  description = "Additional settings to set for the function app"
+  description = "Additional application settings to set on the Function App. Keys prefixed with `Acmebot__`, keys prefixed with `Acmebot:`, and `MICROSOFT_PROVIDER_AUTHENTICATION_SECRET` are reserved by this module."
   default     = {}
   sensitive   = true
 
@@ -214,7 +252,16 @@ variable "site_config" {
     scm_use_main_ip_restriction = optional(bool, false)
     vnet_route_all_enabled      = optional(bool, false)
   })
-  description = "App Service site configuration values exposed by this module. The networking and IP restriction fields follow the AVM App Service interface shape."
+  description = <<DESCRIPTION
+App Service site configuration values exposed by this module. The networking and IP restriction fields follow the AVM App Service interface shape.
+
+- `ip_restriction_default_action` - (Optional) The default action for main site IP restrictions. Possible values are `Allow` and `Deny`. Defaults to `Allow`.
+- `ip_restriction` - (Optional) A list of main site IP restriction rules.
+- `scm_ip_restriction_default_action` - (Optional) The default action for SCM site IP restrictions. Possible values are `Allow` and `Deny`. Defaults to `Allow`.
+- `scm_ip_restriction` - (Optional) A list of SCM site IP restriction rules.
+- `scm_use_main_ip_restriction` - (Optional) Whether SCM uses the main site IP restrictions. Defaults to `false`.
+- `vnet_route_all_enabled` - (Optional) Whether all outbound traffic is routed through the integrated virtual network. Defaults to `false`.
+DESCRIPTION
   default     = {}
   nullable    = false
 
@@ -276,7 +323,12 @@ variable "managed_identities" {
     system_assigned            = optional(bool, false)
     user_assigned_resource_ids = optional(set(string), [])
   })
-  description = "Controls the Managed Identity configuration on the Function App. Acmebot requires either a system-assigned managed identity or a user-assigned managed identity with acmebot_managed_identity_client_id."
+  description = <<DESCRIPTION
+Controls the Managed Identity configuration on the Function App. Acmebot requires either a system-assigned managed identity or a user-assigned managed identity with `acmebot.managed_identity_client_id`.
+
+- `system_assigned` - (Optional) Whether to enable a system-assigned managed identity. Defaults to `false`.
+- `user_assigned_resource_ids` - (Optional) A set of user-assigned managed identity resource IDs to attach to the Function App.
+DESCRIPTION
   default     = {}
   nullable    = false
 
@@ -288,24 +340,17 @@ variable "managed_identities" {
   }
 }
 
-variable "acmebot_managed_identity_client_id" {
-  type        = string
-  description = "The client ID of the user-assigned managed identity that Acmebot should use. Set this when Acmebot must authenticate with a user-assigned managed identity attached through managed_identities.user_assigned_resource_ids."
-  default     = null
-  nullable    = true
-
-  validation {
-    condition     = var.acmebot_managed_identity_client_id == null || can(regex("^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$", var.acmebot_managed_identity_client_id))
-    error_message = "acmebot_managed_identity_client_id must be a valid GUID."
-  }
-}
-
 variable "lock" {
   type = object({
     kind = string
     name = optional(string, null)
   })
-  description = "Controls the Resource Lock configuration for the Function App. `kind` must be either `CanNotDelete` or `ReadOnly`; `name` is optional."
+  description = <<DESCRIPTION
+Controls the Resource Lock configuration for the Function App.
+
+- `kind` - (Required) The lock kind. Possible values are `CanNotDelete` and `ReadOnly`.
+- `name` - (Optional) The lock name. If not specified, a name will be generated based on the `kind` value.
+DESCRIPTION
   default     = null
 
   validation {
@@ -325,7 +370,18 @@ variable "role_assignments" {
     delegated_managed_identity_resource_id = optional(string, null)
     principal_type                         = optional(string, null)
   }))
-  description = "A map of role assignments to create on the Function App. The map key is deliberately arbitrary to avoid issues where map keys may be unknown at plan time."
+  description = <<DESCRIPTION
+A map of role assignments to create on the Function App. The map key is deliberately arbitrary to avoid issues where map keys may be unknown at plan time.
+
+- `role_definition_id_or_name` - (Required) The role definition ID or role definition name to assign.
+- `principal_id` - (Required) The principal ID to assign the role to.
+- `description` - (Optional) The role assignment description.
+- `skip_service_principal_aad_check` - (Optional) Whether to skip the Microsoft Entra service principal check. Defaults to `false`.
+- `condition` - (Optional) The role assignment condition.
+- `condition_version` - (Optional) The role assignment condition version. Possible value is `2.0`.
+- `delegated_managed_identity_resource_id` - (Optional) The delegated managed identity resource ID for cross-tenant scenarios.
+- `principal_type` - (Optional) The principal type. Possible values are `User`, `Group`, and `ServicePrincipal`.
+DESCRIPTION
   default     = {}
   nullable    = false
 
@@ -344,47 +400,115 @@ variable "role_assignments" {
   }
 }
 
-variable "storage_account_name" {
-  type        = string
-  description = "Optional explicit storage account name. When unset, the module generates a deterministic globally-unique name."
-  default     = null
+variable "storage_account" {
+  type = object({
+    name                     = optional(string, null)
+    account_replication_type = optional(string, "LRS")
+    tags                     = optional(map(string), null)
+  })
+  description = <<DESCRIPTION
+Controls the Storage Account used by the Function App deployment package.
+
+- `name` - (Optional) The name of the Storage Account. When unset, the module generates a deterministic globally unique name.
+- `account_replication_type` - (Optional) The replication type for the Storage Account. Possible values are `LRS`, `GRS`, `RAGRS`, `ZRS`, `GZRS`, and `RAGZRS`. Defaults to `LRS`.
+- `tags` - (Optional) Tags to apply to the Storage Account. When unset, `var.tags` is inherited.
+DESCRIPTION
+  default     = {}
+  nullable    = false
 
   validation {
-    condition     = var.storage_account_name == null || can(regex("^[a-z0-9]{3,24}$", var.storage_account_name))
-    error_message = "storage_account_name must be 3-24 characters of lowercase letters and numbers."
+    condition     = var.storage_account.name == null || can(regex("^[a-z0-9]{3,24}$", var.storage_account.name))
+    error_message = "storage_account.name must be 3-24 characters of lowercase letters and numbers."
+  }
+
+  validation {
+    condition     = contains(["LRS", "GRS", "RAGRS", "ZRS", "GZRS", "RAGZRS"], var.storage_account.account_replication_type)
+    error_message = "storage_account.account_replication_type must be one of: \"LRS\", \"GRS\", \"RAGRS\", \"ZRS\", \"GZRS\", or \"RAGZRS\"."
   }
 }
 
-variable "service_plan_name" {
-  type        = string
-  description = "Optional explicit name for the App Service Plan. When unset, the module generates a CAF-aligned name using the asp prefix."
-  default     = null
+variable "deployment_container" {
+  type = object({
+    name = optional(string, null)
+  })
+  description = <<DESCRIPTION
+Controls the Storage Container used by the Function App deployment package.
+
+- `name` - (Optional) The name of the Storage Container. When unset, the module generates a CAF-aligned name with a random suffix to avoid collisions.
+DESCRIPTION
+  default     = {}
+  nullable    = false
 
   validation {
-    condition     = var.service_plan_name == null || can(regex("^[A-Za-z0-9][A-Za-z0-9-]*[A-Za-z0-9]$", var.service_plan_name))
-    error_message = "service_plan_name must contain only letters, numbers, and hyphens, and start and end with a letter or number."
+    condition     = var.deployment_container.name == null || can(regex("^[a-z0-9](?:[a-z0-9-]{1,61}[a-z0-9])?$", var.deployment_container.name))
+    error_message = "deployment_container.name must be 3-63 characters of lowercase letters, numbers, and hyphens, and start and end with a letter or number."
   }
 }
 
-variable "log_analytics_workspace_name" {
-  type        = string
-  description = "Optional explicit name for the Log Analytics workspace. When unset, the module generates a CAF-aligned name using the log prefix."
-  default     = null
+variable "service_plan" {
+  type = object({
+    name = optional(string, null)
+    tags = optional(map(string), null)
+  })
+  description = <<DESCRIPTION
+Controls the App Service Plan used by the Function App.
+
+- `name` - (Optional) The name of the App Service Plan. When unset, the module generates a CAF-aligned name using the `asp` prefix.
+- `tags` - (Optional) Tags to apply to the App Service Plan. When unset, `var.tags` is inherited.
+DESCRIPTION
+  default     = {}
+  nullable    = false
 
   validation {
-    condition     = var.log_analytics_workspace_name == null || can(regex("^[A-Za-z0-9][A-Za-z0-9-]*[A-Za-z0-9]$", var.log_analytics_workspace_name))
-    error_message = "log_analytics_workspace_name must contain only letters, numbers, and hyphens, and start and end with a letter or number."
+    condition     = var.service_plan.name == null || can(regex("^[A-Za-z0-9][A-Za-z0-9-]*[A-Za-z0-9]$", var.service_plan.name))
+    error_message = "service_plan.name must contain only letters, numbers, and hyphens, and start and end with a letter or number."
   }
 }
 
-variable "application_insights_name" {
-  type        = string
-  description = "Optional explicit name for the Application Insights component. When unset, the module generates a CAF-aligned name using the appi prefix."
-  default     = null
+variable "log_analytics_workspace" {
+  type = object({
+    name              = optional(string, null)
+    retention_in_days = optional(number, 30)
+    tags              = optional(map(string), null)
+  })
+  description = <<DESCRIPTION
+Controls the Log Analytics workspace used by Application Insights.
+
+- `name` - (Optional) The name of the Log Analytics workspace. When unset, the module generates a CAF-aligned name using the `log` prefix.
+- `retention_in_days` - (Optional) The workspace retention period in days. Defaults to `30`.
+- `tags` - (Optional) Tags to apply to the Log Analytics workspace. When unset, `var.tags` is inherited.
+DESCRIPTION
+  default     = {}
+  nullable    = false
 
   validation {
-    condition     = var.application_insights_name == null || can(regex("^[A-Za-z0-9][A-Za-z0-9-]*[A-Za-z0-9]$", var.application_insights_name))
-    error_message = "application_insights_name must contain only letters, numbers, and hyphens, and start and end with a letter or number."
+    condition     = var.log_analytics_workspace.name == null || can(regex("^[A-Za-z0-9][A-Za-z0-9-]*[A-Za-z0-9]$", var.log_analytics_workspace.name))
+    error_message = "log_analytics_workspace.name must contain only letters, numbers, and hyphens, and start and end with a letter or number."
+  }
+
+  validation {
+    condition     = var.log_analytics_workspace.retention_in_days >= 30 && var.log_analytics_workspace.retention_in_days <= 730
+    error_message = "log_analytics_workspace.retention_in_days must be between 30 and 730."
+  }
+}
+
+variable "application_insights" {
+  type = object({
+    name = optional(string, null)
+    tags = optional(map(string), null)
+  })
+  description = <<DESCRIPTION
+Controls the Application Insights component connected to the Function App.
+
+- `name` - (Optional) The name of the Application Insights component. When unset, the module generates a CAF-aligned name using the `appi` prefix.
+- `tags` - (Optional) Tags to apply to the Application Insights component. When unset, `var.tags` is inherited.
+DESCRIPTION
+  default     = {}
+  nullable    = false
+
+  validation {
+    condition     = var.application_insights.name == null || can(regex("^[A-Za-z0-9][A-Za-z0-9-]*[A-Za-z0-9]$", var.application_insights.name))
+    error_message = "application_insights.name must contain only letters, numbers, and hyphens, and start and end with a letter or number."
   }
 }
 
@@ -434,150 +558,88 @@ variable "export_api_key" {
 }
 
 # Acmebot Configuration
-variable "acmebot_version" {
-  type        = string
-  description = "Acmebot package version to deploy. Must be a Semantic Versioning 2.0.0 version, such as 5.0.1, 5.0.1-beta.1, or 5.0.1+build.5."
+variable "acmebot" {
+  type = object({
+    version                    = string
+    mail_address               = string
+    vault_uri                  = string
+    acme_endpoint              = optional(string, "https://acme-v02.api.letsencrypt.org/directory")
+    environment                = optional(string, "AzureCloud")
+    webhook_url                = optional(string, null)
+    mitigate_chain_order       = optional(bool, false)
+    app_role_required          = optional(bool, false)
+    managed_identity_client_id = optional(string, null)
+    external_account_binding = optional(object({
+      key_id    = string
+      hmac_key  = string
+      algorithm = string
+    }), null)
+    dns_providers = optional(object({
+      azure_dns = optional(object({
+        subscription_id = string
+      }), null)
+      azure_private_dns = optional(object({
+        subscription_id = string
+      }), null)
+      cloudflare = optional(object({
+        api_token = string
+      }), null)
+      custom_dns = optional(object({
+        endpoint            = string
+        api_key             = string
+        api_key_header_name = string
+        propagation_seconds = number
+      }), null)
+      dns_made_easy = optional(object({
+        api_key    = string
+        secret_key = string
+      }), null)
+      gandi = optional(object({
+        api_key = string
+      }), null)
+      go_daddy = optional(object({
+        api_key    = string
+        api_secret = string
+      }), null)
+      google_dns = optional(object({
+        key_file64 = string
+      }), null)
+      route_53 = optional(object({
+        access_key = string
+        secret_key = string
+        region     = string
+      }), null)
+      trans_ip = optional(object({
+        customer_name    = string
+        private_key_name = string
+      }), null)
+    }), {})
+  })
+  description = <<DESCRIPTION
+Controls Acmebot workload configuration. This object is sensitive because DNS provider credentials, webhook URLs, and external account binding secrets are passed to the Function App as application settings and stored in Terraform state.
+
+- `version` - (Required) The Acmebot package version to deploy. Must be a Semantic Versioning 2.0.0 version, such as `5.0.1`, `5.0.1-beta.1`, or `5.0.1+build.5`.
+- `mail_address` - (Required) The email address for the ACME account.
+- `vault_uri` - (Required) The Key Vault URI where issued certificates are stored.
+- `acme_endpoint` - (Optional) The certification authority ACME endpoint. Defaults to Let's Encrypt production.
+- `environment` - (Optional) The Azure environment name. Defaults to `AzureCloud`.
+- `webhook_url` - (Optional) The webhook URL where Acmebot sends notifications.
+- `mitigate_chain_order` - (Optional) Whether to mitigate certificate chain ordering issues that occur with some services. Defaults to `false`.
+- `app_role_required` - (Optional) Whether additional app role assignment is required during Microsoft Entra authentication. Defaults to `false`.
+- `managed_identity_client_id` - (Optional) The client ID of the user-assigned managed identity Acmebot should use. Set this when `managed_identities.system_assigned` is `false`.
+- `external_account_binding` - (Optional) External Account Binding settings for ACME providers that require account binding.
+- `dns_providers` - (Optional) DNS provider settings for Acmebot. Supported providers are `azure_dns`, `azure_private_dns`, `cloudflare`, `custom_dns`, `dns_made_easy`, `gandi`, `go_daddy`, `google_dns`, `route_53`, and `trans_ip`.
+DESCRIPTION
   nullable    = false
+  sensitive   = true
 
   validation {
-    condition     = can(regex("^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)(-((0|[1-9][0-9]*|[0-9]*[A-Za-z-][0-9A-Za-z-]*)(\\.(0|[1-9][0-9]*|[0-9]*[A-Za-z-][0-9A-Za-z-]*))*))?(\\+([0-9A-Za-z-]+(\\.[0-9A-Za-z-]+)*))?$", var.acmebot_version))
-    error_message = "acmebot_version must be a Semantic Versioning 2.0.0 version, such as 5.0.1, 5.0.1-beta.1, or 5.0.1+build.5."
+    condition     = can(regex("^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)(-((0|[1-9][0-9]*|[0-9]*[A-Za-z-][0-9A-Za-z-]*)(\\.(0|[1-9][0-9]*|[0-9]*[A-Za-z-][0-9A-Za-z-]*))*))?(\\+([0-9A-Za-z-]+(\\.[0-9A-Za-z-]+)*))?$", var.acmebot.version))
+    error_message = "acmebot.version must be a Semantic Versioning 2.0.0 version, such as 5.0.1, 5.0.1-beta.1, or 5.0.1+build.5."
   }
-}
 
-variable "vault_uri" {
-  type        = string
-  description = "URL of the Key Vault to store the issued certificate."
-}
-
-variable "mail_address" {
-  type        = string
-  description = "Email address for ACME account."
-}
-
-variable "acme_endpoint" {
-  type        = string
-  description = "Certification authority ACME Endpoint."
-  default     = "https://acme-v02.api.letsencrypt.org/directory"
-}
-
-variable "environment" {
-  type        = string
-  description = "The name of the Azure environment."
-  default     = "AzureCloud"
-}
-
-variable "webhook_url" {
-  type        = string
-  description = "The webhook where notifications will be sent."
-  default     = null
-  sensitive   = true
-}
-
-variable "mitigate_chain_order" {
-  type        = bool
-  description = "Mitigate certificate ordering issues that occur with some services."
-  default     = false
-}
-
-variable "app_role_required" {
-  type        = bool
-  description = "Specify whether additional App Role assignment is required during Azure AD authentication."
-  default     = false
-}
-
-variable "external_account_binding" {
-  type = object({
-    key_id    = string
-    hmac_key  = string
-    algorithm = string
-  })
-  default   = null
-  sensitive = true
-}
-
-# DNS Provider Configuration
-variable "azure_dns" {
-  type = object({
-    subscription_id = string
-  })
-  default = null
-}
-
-variable "azure_private_dns" {
-  type = object({
-    subscription_id = string
-  })
-  default = null
-}
-
-variable "cloudflare" {
-  type = object({
-    api_token = string
-  })
-  default   = null
-  sensitive = true
-}
-
-variable "custom_dns" {
-  type = object({
-    endpoint            = string
-    api_key             = string
-    api_key_header_name = string
-    propagation_seconds = number
-  })
-  default   = null
-  sensitive = true
-}
-
-variable "dns_made_easy" {
-  type = object({
-    api_key    = string
-    secret_key = string
-  })
-  default   = null
-  sensitive = true
-}
-
-variable "gandi" {
-  type = object({
-    api_key = string
-  })
-  default   = null
-  sensitive = true
-}
-
-variable "go_daddy" {
-  type = object({
-    api_key    = string
-    api_secret = string
-  })
-  default   = null
-  sensitive = true
-}
-
-variable "google_dns" {
-  type = object({
-    key_file64 = string
-  })
-  default   = null
-  sensitive = true
-}
-
-variable "route_53" {
-  type = object({
-    access_key = string
-    secret_key = string
-    region     = string
-  })
-  default   = null
-  sensitive = true
-}
-
-variable "trans_ip" {
-  type = object({
-    customer_name    = string
-    private_key_name = string
-  })
-  default = null
+  validation {
+    condition     = var.acmebot.managed_identity_client_id == null || can(regex("^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$", var.acmebot.managed_identity_client_id))
+    error_message = "acmebot.managed_identity_client_id must be a valid GUID."
+  }
 }

@@ -13,15 +13,28 @@ module "acmebot" {
   name                = "func-acmebot-module"
   resource_group_name = azurerm_resource_group.default.name
   location            = azurerm_resource_group.default.location
-  mail_address        = "YOUR-EMAIL-ADDRESS"
-  vault_uri           = azurerm_key_vault.default.vault_uri
-  acmebot_version     = "5.0.1"
   tags = {
     workload = "acmebot"
   }
 
-  azure_dns = {
-    subscription_id = data.azurerm_client_config.current.subscription_id
+  acmebot = {
+    version      = "5.0.1"
+    mail_address = "YOUR-EMAIL-ADDRESS"
+    vault_uri    = azurerm_key_vault.default.vault_uri
+
+    dns_providers = {
+      azure_dns = {
+        subscription_id = data.azurerm_client_config.current.subscription_id
+      }
+    }
+  }
+
+  storage_account = {
+    account_replication_type = "ZRS"
+  }
+
+  log_analytics_workspace = {
+    retention_in_days = 90
   }
 
   auth_settings = {
@@ -64,7 +77,8 @@ module "acmebot" {
   #   system_assigned            = false
   #   user_assigned_resource_ids = [azurerm_user_assigned_identity.acmebot.id]
   # }
-  # acmebot_managed_identity_client_id = azurerm_user_assigned_identity.acmebot.client_id
+  # Add this to the acmebot object above:
+  # managed_identity_client_id = azurerm_user_assigned_identity.acmebot.client_id
 
   private_endpoints = {
     primary = {
@@ -80,16 +94,18 @@ module "acmebot" {
 ## Notes
 
 - `name` is the Function App name. It must be 2-32 characters; contain only letters, numbers, and hyphens; and start and end with a letter or number.
-- `acmebot_version` must be a Semantic Versioning 2.0.0 version, such as `5.0.1`, `5.0.1-beta.1`, or `5.0.1+build.5`.
+- `acmebot.version` must be a Semantic Versioning 2.0.0 version, such as `5.0.1`, `5.0.1-beta.1`, or `5.0.1+build.5`.
 - Secret inputs are marked as sensitive, but they are still stored in Terraform state when used to configure the Function App.
-- This module adopts AVM-inspired interface patterns, but it is not an official Azure Verified Module.
+- This module uses an azurerm-first implementation with AVM-aligned interface patterns, but it is not an official Azure Verified Module.
 - AVM-style `diagnostic_settings`, `lock`, `managed_identities`, `role_assignments`, and `private_endpoints` inputs can apply diagnostic settings, resource locks, managed identities, RBAC assignments, and Private Endpoints to the Function App.
-- Acmebot requires either `managed_identities.system_assigned = true` or a user-assigned managed identity. To use a user-assigned managed identity, attach it through `managed_identities.user_assigned_resource_ids` and set `acmebot_managed_identity_client_id`; the module maps it to `Acmebot__ManagedIdentityClientId`.
-- Child resources use CAF-aligned default name prefixes where applicable and can be overridden with `service_plan_name`, `log_analytics_workspace_name`, `application_insights_name`, and `storage_account_name`.
+- Acmebot workload settings are grouped under `acmebot`, including ACME account settings, Key Vault target, DNS provider configuration, webhook configuration, and External Account Binding.
+- Acmebot requires either `managed_identities.system_assigned = true` or a user-assigned managed identity. To use a user-assigned managed identity, attach it through `managed_identities.user_assigned_resource_ids` and set `acmebot.managed_identity_client_id`; the module maps it to `Acmebot__ManagedIdentityClientId`.
+- Child resources inherit `var.tags` by default, support child-specific tag overrides where Azure supports tags, and use CAF-aligned default name prefixes where applicable.
+- Child resource settings can be overridden with `storage_account`, `deployment_container`, `service_plan`, `log_analytics_workspace`, and `application_insights`.
 - VNET integration uses the AVM App Service naming pattern `virtual_network_subnet_id`, and outbound route-all is configured with `site_config.vnet_route_all_enabled`.
 - IP restrictions use AVM App Service-style `site_config.ip_restriction`, `site_config.scm_ip_restriction`, `site_config.ip_restriction_default_action`, `site_config.scm_ip_restriction_default_action`, and `site_config.scm_use_main_ip_restriction`.
 - Private Endpoints default to the Function App `sites` subresource and manage a private DNS zone group when `private_dns_zone_resource_ids` is set.
-- Acmebot deployment uses Azure Functions zip deploy. The package URI is built from `acmebot_version` as `https://stacmebotprod.blob.core.windows.net/acmebot/v<major>/<version>.zip`.
+- Acmebot deployment uses Azure Functions zip deploy. The package URI is built from `acmebot.version` as `https://stacmebotprod.blob.core.windows.net/acmebot/v<major>/<version>.zip`.
 
 <!-- markdownlint-disable MD033 -->
 ## Requirements
@@ -142,21 +158,86 @@ The following resources are used by this module:
 
 The following input variables are required:
 
-### <a name="input_acmebot_version"></a> [acmebot\_version](#input\_acmebot\_version)
+### <a name="input_acmebot"></a> [acmebot](#input\_acmebot)
 
-Description: Acmebot package version to deploy. Must be a Semantic Versioning 2.0.0 version, such as 5.0.1, 5.0.1-beta.1, or 5.0.1+build.5.
+Description: Controls Acmebot workload configuration. This object is sensitive because DNS provider credentials, webhook URLs, and external account binding secrets are passed to the Function App as application settings and stored in Terraform state.
 
-Type: `string`
+- `version` - (Required) The Acmebot package version to deploy. Must be a Semantic Versioning 2.0.0 version, such as `5.0.1`, `5.0.1-beta.1`, or `5.0.1+build.5`.
+- `mail_address` - (Required) The email address for the ACME account.
+- `vault_uri` - (Required) The Key Vault URI where issued certificates are stored.
+- `acme_endpoint` - (Optional) The certification authority ACME endpoint. Defaults to Let's Encrypt production.
+- `environment` - (Optional) The Azure environment name. Defaults to `AzureCloud`.
+- `webhook_url` - (Optional) The webhook URL where Acmebot sends notifications.
+- `mitigate_chain_order` - (Optional) Whether to mitigate certificate chain ordering issues that occur with some services. Defaults to `false`.
+- `app_role_required` - (Optional) Whether additional app role assignment is required during Microsoft Entra authentication. Defaults to `false`.
+- `managed_identity_client_id` - (Optional) The client ID of the user-assigned managed identity Acmebot should use. Set this when `managed_identities.system_assigned` is `false`.
+- `external_account_binding` - (Optional) External Account Binding settings for ACME providers that require account binding.
+- `dns_providers` - (Optional) DNS provider settings for Acmebot. Supported providers are `azure_dns`, `azure_private_dns`, `cloudflare`, `custom_dns`, `dns_made_easy`, `gandi`, `go_daddy`, `google_dns`, `route_53`, and `trans_ip`.
+
+Type:
+
+```hcl
+object({
+    version                    = string
+    mail_address               = string
+    vault_uri                  = string
+    acme_endpoint              = optional(string, "https://acme-v02.api.letsencrypt.org/directory")
+    environment                = optional(string, "AzureCloud")
+    webhook_url                = optional(string, null)
+    mitigate_chain_order       = optional(bool, false)
+    app_role_required          = optional(bool, false)
+    managed_identity_client_id = optional(string, null)
+    external_account_binding = optional(object({
+      key_id    = string
+      hmac_key  = string
+      algorithm = string
+    }), null)
+    dns_providers = optional(object({
+      azure_dns = optional(object({
+        subscription_id = string
+      }), null)
+      azure_private_dns = optional(object({
+        subscription_id = string
+      }), null)
+      cloudflare = optional(object({
+        api_token = string
+      }), null)
+      custom_dns = optional(object({
+        endpoint            = string
+        api_key             = string
+        api_key_header_name = string
+        propagation_seconds = number
+      }), null)
+      dns_made_easy = optional(object({
+        api_key    = string
+        secret_key = string
+      }), null)
+      gandi = optional(object({
+        api_key = string
+      }), null)
+      go_daddy = optional(object({
+        api_key    = string
+        api_secret = string
+      }), null)
+      google_dns = optional(object({
+        key_file64 = string
+      }), null)
+      route_53 = optional(object({
+        access_key = string
+        secret_key = string
+        region     = string
+      }), null)
+      trans_ip = optional(object({
+        customer_name    = string
+        private_key_name = string
+      }), null)
+    }), {})
+  })
+```
 
 ### <a name="input_location"></a> [location](#input\_location)
 
 Description: Azure region to create resources.
-
-Type: `string`
-
-### <a name="input_mail_address"></a> [mail\_address](#input\_mail\_address)
-
-Description: Email address for ACME account.
 
 Type: `string`
 
@@ -172,59 +253,44 @@ Description: Resource group name to be added.
 
 Type: `string`
 
-### <a name="input_vault_uri"></a> [vault\_uri](#input\_vault\_uri)
-
-Description: URL of the Key Vault to store the issued certificate.
-
-Type: `string`
-
 ## Optional Inputs
 
 The following input variables are optional (have default values):
 
-### <a name="input_acme_endpoint"></a> [acme\_endpoint](#input\_acme\_endpoint)
-
-Description: Certification authority ACME Endpoint.
-
-Type: `string`
-
-Default: `"https://acme-v02.api.letsencrypt.org/directory"`
-
-### <a name="input_acmebot_managed_identity_client_id"></a> [acmebot\_managed\_identity\_client\_id](#input\_acmebot\_managed\_identity\_client\_id)
-
-Description: The client ID of the user-assigned managed identity that Acmebot should use. Set this when Acmebot must authenticate with a user-assigned managed identity attached through managed\_identities.user\_assigned\_resource\_ids.
-
-Type: `string`
-
-Default: `null`
-
 ### <a name="input_additional_app_settings"></a> [additional\_app\_settings](#input\_additional\_app\_settings)
 
-Description: Additional settings to set for the function app
+Description: Additional application settings to set on the Function App. Keys prefixed with `Acmebot__`, keys prefixed with `Acmebot:`, and `MICROSOFT_PROVIDER_AUTHENTICATION_SECRET` are reserved by this module.
 
 Type: `map(string)`
 
 Default: `{}`
 
-### <a name="input_app_role_required"></a> [app\_role\_required](#input\_app\_role\_required)
+### <a name="input_application_insights"></a> [application\_insights](#input\_application\_insights)
 
-Description: Specify whether additional App Role assignment is required during Azure AD authentication.
+Description: Controls the Application Insights component connected to the Function App.
 
-Type: `bool`
+- `name` - (Optional) The name of the Application Insights component. When unset, the module generates a CAF-aligned name using the `appi` prefix.
+- `tags` - (Optional) Tags to apply to the Application Insights component. When unset, `var.tags` is inherited.
 
-Default: `false`
+Type:
 
-### <a name="input_application_insights_name"></a> [application\_insights\_name](#input\_application\_insights\_name)
+```hcl
+object({
+    name = optional(string, null)
+    tags = optional(map(string), null)
+  })
+```
 
-Description: Optional explicit name for the Application Insights component. When unset, the module generates a CAF-aligned name using the appi prefix.
-
-Type: `string`
-
-Default: `null`
+Default: `{}`
 
 ### <a name="input_auth_settings"></a> [auth\_settings](#input\_auth\_settings)
 
-Description: Authentication settings for the function app
+Description: Controls App Service Authentication for the Function App.
+
+- `enabled` - (Required) Whether App Service Authentication is enabled.
+- `active_directory.client_id` - (Required) The Microsoft Entra application client ID.
+- `active_directory.client_secret` - (Required) The Microsoft Entra application client secret. This value is stored in Terraform state.
+- `active_directory.tenant_auth_endpoint` - (Required) The tenant-specific Microsoft Entra authorization endpoint.
 
 Type:
 
@@ -241,68 +307,36 @@ object({
 
 Default: `null`
 
-### <a name="input_azure_dns"></a> [azure\_dns](#input\_azure\_dns)
+### <a name="input_deployment_container"></a> [deployment\_container](#input\_deployment\_container)
 
-Description: DNS Provider Configuration
+Description: Controls the Storage Container used by the Function App deployment package.
 
-Type:
-
-```hcl
-object({
-    subscription_id = string
-  })
-```
-
-Default: `null`
-
-### <a name="input_azure_private_dns"></a> [azure\_private\_dns](#input\_azure\_private\_dns)
-
-Description: n/a
+- `name` - (Optional) The name of the Storage Container. When unset, the module generates a CAF-aligned name with a random suffix to avoid collisions.
 
 Type:
 
 ```hcl
 object({
-    subscription_id = string
+    name = optional(string, null)
   })
 ```
 
-Default: `null`
-
-### <a name="input_cloudflare"></a> [cloudflare](#input\_cloudflare)
-
-Description: n/a
-
-Type:
-
-```hcl
-object({
-    api_token = string
-  })
-```
-
-Default: `null`
-
-### <a name="input_custom_dns"></a> [custom\_dns](#input\_custom\_dns)
-
-Description: n/a
-
-Type:
-
-```hcl
-object({
-    endpoint            = string
-    api_key             = string
-    api_key_header_name = string
-    propagation_seconds = number
-  })
-```
-
-Default: `null`
+Default: `{}`
 
 ### <a name="input_diagnostic_settings"></a> [diagnostic\_settings](#input\_diagnostic\_settings)
 
 Description: A map of diagnostic settings to create on the Function App. The map key is deliberately arbitrary to avoid issues where map keys may be unknown at plan time.
+
+- `name` - (Optional) The name of the diagnostic setting. One will be generated if not set.
+- `log_categories` - (Optional) A set of log categories to send to the destination.
+- `log_groups` - (Optional) A set of log category groups to send to the destination. Defaults to `["allLogs"]`.
+- `metric_categories` - (Optional) A set of metric categories to send to the destination. Defaults to `["AllMetrics"]`.
+- `log_analytics_destination_type` - (Optional) The destination table type for Log Analytics. Possible values are `Dedicated` and `AzureDiagnostics`. Defaults to `Dedicated`.
+- `workspace_resource_id` - (Optional) The resource ID of the Log Analytics workspace destination.
+- `storage_account_resource_id` - (Optional) The resource ID of the Storage Account destination.
+- `event_hub_authorization_rule_resource_id` - (Optional) The resource ID of the Event Hub authorization rule destination.
+- `event_hub_name` - (Optional) The Event Hub name. When unset, the default Event Hub is used.
+- `marketplace_partner_resource_id` - (Optional) The full ARM resource ID of the Marketplace partner destination.
 
 Type:
 
@@ -323,29 +357,6 @@ map(object({
 
 Default: `{}`
 
-### <a name="input_dns_made_easy"></a> [dns\_made\_easy](#input\_dns\_made\_easy)
-
-Description: n/a
-
-Type:
-
-```hcl
-object({
-    api_key    = string
-    secret_key = string
-  })
-```
-
-Default: `null`
-
-### <a name="input_environment"></a> [environment](#input\_environment)
-
-Description: The name of the Azure environment.
-
-Type: `string`
-
-Default: `"AzureCloud"`
-
 ### <a name="input_export_api_key"></a> [export\_api\_key](#input\_export\_api\_key)
 
 Description: Whether to read and export the default function host key as output.
@@ -353,65 +364,6 @@ Description: Whether to read and export the default function host key as output.
 Type: `bool`
 
 Default: `false`
-
-### <a name="input_external_account_binding"></a> [external\_account\_binding](#input\_external\_account\_binding)
-
-Description: n/a
-
-Type:
-
-```hcl
-object({
-    key_id    = string
-    hmac_key  = string
-    algorithm = string
-  })
-```
-
-Default: `null`
-
-### <a name="input_gandi"></a> [gandi](#input\_gandi)
-
-Description: n/a
-
-Type:
-
-```hcl
-object({
-    api_key = string
-  })
-```
-
-Default: `null`
-
-### <a name="input_go_daddy"></a> [go\_daddy](#input\_go\_daddy)
-
-Description: n/a
-
-Type:
-
-```hcl
-object({
-    api_key    = string
-    api_secret = string
-  })
-```
-
-Default: `null`
-
-### <a name="input_google_dns"></a> [google\_dns](#input\_google\_dns)
-
-Description: n/a
-
-Type:
-
-```hcl
-object({
-    key_file64 = string
-  })
-```
-
-Default: `null`
 
 ### <a name="input_instance_memory_in_mb"></a> [instance\_memory\_in\_mb](#input\_instance\_memory\_in\_mb)
 
@@ -423,7 +375,10 @@ Default: `null`
 
 ### <a name="input_lock"></a> [lock](#input\_lock)
 
-Description: Controls the Resource Lock configuration for the Function App. `kind` must be either `CanNotDelete` or `ReadOnly`; `name` is optional.
+Description: Controls the Resource Lock configuration for the Function App.
+
+- `kind` - (Required) The lock kind. Possible values are `CanNotDelete` and `ReadOnly`.
+- `name` - (Optional) The lock name. If not specified, a name will be generated based on the `kind` value.
 
 Type:
 
@@ -436,17 +391,32 @@ object({
 
 Default: `null`
 
-### <a name="input_log_analytics_workspace_name"></a> [log\_analytics\_workspace\_name](#input\_log\_analytics\_workspace\_name)
+### <a name="input_log_analytics_workspace"></a> [log\_analytics\_workspace](#input\_log\_analytics\_workspace)
 
-Description: Optional explicit name for the Log Analytics workspace. When unset, the module generates a CAF-aligned name using the log prefix.
+Description: Controls the Log Analytics workspace used by Application Insights.
 
-Type: `string`
+- `name` - (Optional) The name of the Log Analytics workspace. When unset, the module generates a CAF-aligned name using the `log` prefix.
+- `retention_in_days` - (Optional) The workspace retention period in days. Defaults to `30`.
+- `tags` - (Optional) Tags to apply to the Log Analytics workspace. When unset, `var.tags` is inherited.
 
-Default: `null`
+Type:
+
+```hcl
+object({
+    name              = optional(string, null)
+    retention_in_days = optional(number, 30)
+    tags              = optional(map(string), null)
+  })
+```
+
+Default: `{}`
 
 ### <a name="input_managed_identities"></a> [managed\_identities](#input\_managed\_identities)
 
-Description: Controls the Managed Identity configuration on the Function App. Acmebot requires either a system-assigned managed identity or a user-assigned managed identity with acmebot\_managed\_identity\_client\_id.
+Description: Controls the Managed Identity configuration on the Function App. Acmebot requires either a system-assigned managed identity or a user-assigned managed identity with `acmebot.managed_identity_client_id`.
+
+- `system_assigned` - (Optional) Whether to enable a system-assigned managed identity. Defaults to `false`.
+- `user_assigned_resource_ids` - (Optional) A set of user-assigned managed identity resource IDs to attach to the Function App.
 
 Type:
 
@@ -467,17 +437,25 @@ Type: `number`
 
 Default: `null`
 
-### <a name="input_mitigate_chain_order"></a> [mitigate\_chain\_order](#input\_mitigate\_chain\_order)
-
-Description: Mitigate certificate ordering issues that occur with some services.
-
-Type: `bool`
-
-Default: `false`
-
 ### <a name="input_private_endpoints"></a> [private\_endpoints](#input\_private\_endpoints)
 
 Description: A map of private endpoints to create for the Function App. The map key is deliberately arbitrary to avoid issues where map keys may be unknown at plan time.
+
+- `name` - (Optional) The name of the private endpoint. One will be generated if not set.
+- `subnet_resource_id` - (Required) The resource ID of the subnet where the private endpoint will be created.
+- `subresource_name` - (Optional) The Function App subresource name. Defaults to `sites`.
+- `private_dns_zone_group_name` - (Optional) The private DNS zone group name. Defaults to `default`.
+- `private_dns_zone_resource_ids` - (Optional) A set of private DNS zone resource IDs to associate with the private endpoint.
+- `application_security_group_associations` - (Optional) A map of application security group resource IDs to associate with the private endpoint.
+- `private_service_connection_name` - (Optional) The private service connection name. One will be generated if not set.
+- `network_interface_name` - (Optional) The private endpoint network interface name.
+- `location` - (Optional) The private endpoint location. Defaults to `var.location`.
+- `resource_group_name` - (Optional) The private endpoint resource group name. Defaults to `var.resource_group_name`.
+- `inherit_lock` - (Optional) Whether this private endpoint inherits `var.lock` when no endpoint-specific lock is set. Defaults to `true`.
+- `lock` - (Optional) The lock to apply to this private endpoint.
+- `tags` - (Optional) Tags to apply to this private endpoint. When unset, `var.tags` is inherited.
+- `ip_configurations` - (Optional) A map of static IP configurations for the private endpoint.
+- `role_assignments` - (Optional) A map of role assignments to create on this private endpoint.
 
 Type:
 
@@ -539,6 +517,15 @@ Default: `null`
 
 Description: A map of role assignments to create on the Function App. The map key is deliberately arbitrary to avoid issues where map keys may be unknown at plan time.
 
+- `role_definition_id_or_name` - (Required) The role definition ID or role definition name to assign.
+- `principal_id` - (Required) The principal ID to assign the role to.
+- `description` - (Optional) The role assignment description.
+- `skip_service_principal_aad_check` - (Optional) Whether to skip the Microsoft Entra service principal check. Defaults to `false`.
+- `condition` - (Optional) The role assignment condition.
+- `condition_version` - (Optional) The role assignment condition version. Possible value is `2.0`.
+- `delegated_managed_identity_resource_id` - (Optional) The delegated managed identity resource ID for cross-tenant scenarios.
+- `principal_type` - (Optional) The principal type. Possible values are `User`, `Group`, and `ServicePrincipal`.
+
 Type:
 
 ```hcl
@@ -556,33 +543,34 @@ map(object({
 
 Default: `{}`
 
-### <a name="input_route_53"></a> [route\_53](#input\_route\_53)
+### <a name="input_service_plan"></a> [service\_plan](#input\_service\_plan)
 
-Description: n/a
+Description: Controls the App Service Plan used by the Function App.
+
+- `name` - (Optional) The name of the App Service Plan. When unset, the module generates a CAF-aligned name using the `asp` prefix.
+- `tags` - (Optional) Tags to apply to the App Service Plan. When unset, `var.tags` is inherited.
 
 Type:
 
 ```hcl
 object({
-    access_key = string
-    secret_key = string
-    region     = string
+    name = optional(string, null)
+    tags = optional(map(string), null)
   })
 ```
 
-Default: `null`
-
-### <a name="input_service_plan_name"></a> [service\_plan\_name](#input\_service\_plan\_name)
-
-Description: Optional explicit name for the App Service Plan. When unset, the module generates a CAF-aligned name using the asp prefix.
-
-Type: `string`
-
-Default: `null`
+Default: `{}`
 
 ### <a name="input_site_config"></a> [site\_config](#input\_site\_config)
 
 Description: App Service site configuration values exposed by this module. The networking and IP restriction fields follow the AVM App Service interface shape.
+
+- `ip_restriction_default_action` - (Optional) The default action for main site IP restrictions. Possible values are `Allow` and `Deny`. Defaults to `Allow`.
+- `ip_restriction` - (Optional) A list of main site IP restriction rules.
+- `scm_ip_restriction_default_action` - (Optional) The default action for SCM site IP restrictions. Possible values are `Allow` and `Deny`. Defaults to `Allow`.
+- `scm_ip_restriction` - (Optional) A list of SCM site IP restriction rules.
+- `scm_use_main_ip_restriction` - (Optional) Whether SCM uses the main site IP restrictions. Defaults to `false`.
+- `vnet_route_all_enabled` - (Optional) Whether all outbound traffic is routed through the integrated virtual network. Defaults to `false`.
 
 Type:
 
@@ -625,13 +613,25 @@ object({
 
 Default: `{}`
 
-### <a name="input_storage_account_name"></a> [storage\_account\_name](#input\_storage\_account\_name)
+### <a name="input_storage_account"></a> [storage\_account](#input\_storage\_account)
 
-Description: Optional explicit storage account name. When unset, the module generates a deterministic globally-unique name.
+Description: Controls the Storage Account used by the Function App deployment package.
 
-Type: `string`
+- `name` - (Optional) The name of the Storage Account. When unset, the module generates a deterministic globally unique name.
+- `account_replication_type` - (Optional) The replication type for the Storage Account. Possible values are `LRS`, `GRS`, `RAGRS`, `ZRS`, `GZRS`, and `RAGZRS`. Defaults to `LRS`.
+- `tags` - (Optional) Tags to apply to the Storage Account. When unset, `var.tags` is inherited.
 
-Default: `null`
+Type:
+
+```hcl
+object({
+    name                     = optional(string, null)
+    account_replication_type = optional(string, "LRS")
+    tags                     = optional(map(string), null)
+  })
+```
+
+Default: `{}`
 
 ### <a name="input_tags"></a> [tags](#input\_tags)
 
@@ -641,32 +641,9 @@ Type: `map(string)`
 
 Default: `null`
 
-### <a name="input_trans_ip"></a> [trans\_ip](#input\_trans\_ip)
-
-Description: n/a
-
-Type:
-
-```hcl
-object({
-    customer_name    = string
-    private_key_name = string
-  })
-```
-
-Default: `null`
-
 ### <a name="input_virtual_network_subnet_id"></a> [virtual\_network\_subnet\_id](#input\_virtual\_network\_subnet\_id)
 
 Description: Existing subnet resource ID to use for VNET integration.
-
-Type: `string`
-
-Default: `null`
-
-### <a name="input_webhook_url"></a> [webhook\_url](#input\_webhook\_url)
-
-Description: The webhook where notifications will be sent.
 
 Type: `string`
 
