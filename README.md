@@ -108,11 +108,11 @@ The following requirements are needed by this module:
 
 The following providers are used by this module:
 
-- <a name="provider_azapi"></a> [azapi](#provider\_azapi) (2.9.0)
+- <a name="provider_azapi"></a> [azapi](#provider\_azapi) (~> 2.0)
 
-- <a name="provider_azurerm"></a> [azurerm](#provider\_azurerm) (4.67.0)
+- <a name="provider_azurerm"></a> [azurerm](#provider\_azurerm) (~> 4.0)
 
-- <a name="provider_random"></a> [random](#provider\_random) (3.8.1)
+- <a name="provider_random"></a> [random](#provider\_random) (~> 3.0)
 
 ## Resources
 
