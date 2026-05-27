@@ -440,7 +440,7 @@ DESCRIPTION
   nullable    = false
 
   validation {
-    condition     = var.deployment_container.name == null || can(regex("^[a-z0-9](?:[a-z0-9-]{1,61}[a-z0-9])?$", var.deployment_container.name))
+    condition     = var.deployment_container.name == null || can(regex("^[a-z0-9](?:[a-z0-9-]{1,61}[a-z0-9])$", var.deployment_container.name))
     error_message = "deployment_container.name must be 3-63 characters of lowercase letters, numbers, and hyphens, and start and end with a letter or number."
   }
 }
