@@ -7,7 +7,7 @@ provider "azurerm" {
 }
 
 terraform {
-  required_version = ">= 1.3.0"
+  required_version = ">= 1.3.0, < 2.0.0"
 
   required_providers {
     azurerm = {
@@ -142,21 +142,63 @@ resource "azurerm_key_vault" "default" {
 resource "azurerm_role_assignment" "default" {
   scope                = azurerm_key_vault.default.id
   role_definition_name = "Key Vault Certificates Officer"
-  principal_id         = module.acmebot.principal_id
+  principal_id         = module.acmebot.system_assigned_mi_principal_id
 }
 
 module "acmebot" {
   source = "../"
 
-  app_base_name          = "acmebot-${random_string.random.result}"
+  name                   = "func-acmebot-${random_string.random.result}"
   resource_group_name    = azurerm_resource_group.default.name
   location               = azurerm_resource_group.default.location
   mail_address           = "YOUR-EMAIL-ADDRESS"
   vault_uri              = azurerm_key_vault.default.vault_uri
-  acmebot_version        = "v5"
+  acmebot_version        = "5.0.1"
   maximum_instance_count = 50
   instance_memory_in_mb  = 2048
-  # vnet_integration_subnet_id = "/subscriptions/xxxx/resourceGroups/rg-network/providers/Microsoft.Network/virtualNetworks/vnet-acmebot/subnets/snet-acmebot"
+  tags = {
+    workload = "acmebot"
+  }
+
+  managed_identities = {
+    system_assigned = true
+  }
+
+  # To use a user-assigned managed identity for Acmebot, assign Key Vault access
+  # to that identity and pass both the AVM-style resource ID and Acmebot client ID.
+  # managed_identities = {
+  #   system_assigned            = false
+  #   user_assigned_resource_ids = [azurerm_user_assigned_identity.acmebot.id]
+  # }
+  # acmebot_managed_identity_client_id = azurerm_user_assigned_identity.acmebot.client_id
+  #
+  # virtual_network_subnet_id = "/subscriptions/xxxx/resourceGroups/rg-network/providers/Microsoft.Network/virtualNetworks/vnet-acmebot/subnets/snet-acmebot"
+  #
+  # site_config = {
+  #   vnet_route_all_enabled        = true
+  #   ip_restriction_default_action = "Deny"
+  #   scm_use_main_ip_restriction   = true
+  #
+  #   ip_restriction = [
+  #     {
+  #       name        = "Allow Azure Front Door"
+  #       priority    = 100
+  #       service_tag = "AzureFrontDoor.Backend"
+  #       headers = {
+  #         x_azure_fdid = ["00000000-0000-0000-0000-000000000000"]
+  #       }
+  #     }
+  #   ]
+  # }
+  #
+  # private_endpoints = {
+  #   primary = {
+  #     subnet_resource_id = "/subscriptions/xxxx/resourceGroups/rg-network/providers/Microsoft.Network/virtualNetworks/vnet-acmebot/subnets/snet-private-endpoints"
+  #     private_dns_zone_resource_ids = [
+  #       "/subscriptions/xxxx/resourceGroups/rg-network/providers/Microsoft.Network/privateDnsZones/privatelink.azurewebsites.net"
+  #     ]
+  #   }
+  # }
 
   azure_dns = {
     subscription_id = data.azurerm_client_config.current.subscription_id
@@ -172,6 +214,6 @@ module "acmebot" {
   }
 }
 
-output "principal_id" {
-  value = module.acmebot.principal_id
+output "system_assigned_mi_principal_id" {
+  value = module.acmebot.system_assigned_mi_principal_id
 }

@@ -1,0 +1,81 @@
+name: CI
+
+on:
+  push:
+    branches: [ master ]
+  pull_request:
+    branches: [ master ]
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  TF_IN_AUTOMATION: "true"
+  TERRAFORM_VERSION: "1.15.4"
+  TERRAFORM_DOCS_VERSION: "0.24.0"
+
+jobs:
+  terraform-fmt:
+    name: Terraform format
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+    - name: Setup Terraform CLI
+      uses: hashicorp/setup-terraform@dfe3c3f87815947d99a8997f908cb6525fc44e9e # v4.0.1
+      with:
+        terraform_version: ${{ env.TERRAFORM_VERSION }}
+
+    - name: Check Terraform formatting
+      run: terraform fmt -check -recursive
+
+  terraform-validate:
+    name: Terraform validate (${{ matrix.working-directory }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        working-directory:
+        - .
+        - example
+
+    steps:
+    - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+    - name: Setup Terraform CLI
+      uses: hashicorp/setup-terraform@dfe3c3f87815947d99a8997f908cb6525fc44e9e # v4.0.1
+      with:
+        terraform_version: ${{ env.TERRAFORM_VERSION }}
+
+    - name: Initialize Terraform
+      working-directory: ${{ matrix.working-directory }}
+      run: terraform init -backend=false
+
+    - name: Validate Terraform
+      working-directory: ${{ matrix.working-directory }}
+      run: terraform validate
+
+  docs:
+    name: Generated docs
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+    - name: Install terraform-docs
+      run: |
+        curl -fsSLo terraform-docs.tar.gz "https://github.com/terraform-docs/terraform-docs/releases/download/v${TERRAFORM_DOCS_VERSION}/terraform-docs-v${TERRAFORM_DOCS_VERSION}-linux-amd64.tar.gz"
+        tar -xzf terraform-docs.tar.gz terraform-docs
+        sudo install terraform-docs /usr/local/bin/terraform-docs
+
+    - name: Generate documentation
+      run: terraform-docs -c .terraform-docs.yml .
+
+    - name: Check generated README
+      run: git diff --exit-code -- README.md

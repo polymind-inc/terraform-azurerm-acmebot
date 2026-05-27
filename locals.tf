@@ -1,18 +1,66 @@
 
 locals {
-  function_app_name = "func-${var.app_base_name}"
+  function_app_name = var.name
+  tags              = var.tags
 
-  acmebot_release_version = replace(var.acmebot_version, "/^v/", "")
-  acmebot_major_version   = "v${split(".", local.acmebot_release_version)[0]}"
-  acmebot_package_name    = var.acmebot_version == local.acmebot_major_version ? "latest" : local.acmebot_release_version
-  acmebot_package_uri     = "https://stacmebotprod.blob.core.windows.net/acmebot/${local.acmebot_major_version}/${local.acmebot_package_name}.zip"
+  role_definition_resource_substring = "providers/microsoft\\.authorization/roledefinitions"
+
+  managed_identities = {
+    system_assigned_user_assigned = (var.managed_identities.system_assigned || length(var.managed_identities.user_assigned_resource_ids) > 0) ? {
+      this = {
+        type                       = var.managed_identities.system_assigned && length(var.managed_identities.user_assigned_resource_ids) > 0 ? "SystemAssigned, UserAssigned" : length(var.managed_identities.user_assigned_resource_ids) > 0 ? "UserAssigned" : "SystemAssigned"
+        user_assigned_resource_ids = var.managed_identities.user_assigned_resource_ids
+      }
+    } : {}
+  }
+
+  private_endpoint_application_security_group_associations = {
+    for association in flatten([
+      for private_endpoint_key, private_endpoint in var.private_endpoints : [
+        for association_key, application_security_group_resource_id in private_endpoint.application_security_group_associations : {
+          key                                    = "${private_endpoint_key}.${association_key}"
+          private_endpoint_key                   = private_endpoint_key
+          application_security_group_resource_id = application_security_group_resource_id
+        }
+      ]
+    ]) : association.key => association
+  }
+
+  private_endpoint_locks = {
+    for private_endpoint_key, private_endpoint in var.private_endpoints : private_endpoint_key => (private_endpoint.lock != null ? private_endpoint.lock : var.lock)
+    if private_endpoint.lock != null || (private_endpoint.inherit_lock && var.lock != null)
+  }
+
+  private_endpoint_role_assignments = {
+    for assignment in flatten([
+      for private_endpoint_key, private_endpoint in var.private_endpoints : [
+        for assignment_key, assignment in private_endpoint.role_assignments : merge(assignment, {
+          key                  = "${private_endpoint_key}.${assignment_key}"
+          private_endpoint_key = private_endpoint_key
+        })
+      ]
+    ]) : assignment.key => assignment
+  }
+
+  private_endpoint_resource_ids = merge(
+    { for key, private_endpoint in azurerm_private_endpoint.function_app : key => private_endpoint.id },
+    { for key, private_endpoint in azurerm_private_endpoint.function_app_unmanaged_dns_zone_groups : key => private_endpoint.id },
+  )
+
+  private_endpoint_names = merge(
+    { for key, private_endpoint in azurerm_private_endpoint.function_app : key => private_endpoint.name },
+    { for key, private_endpoint in azurerm_private_endpoint.function_app_unmanaged_dns_zone_groups : key => private_endpoint.name },
+  )
+
+  acmebot_major_version = "v${split(".", var.acmebot_version)[0]}"
+  acmebot_package_uri   = "https://stacmebotprod.blob.core.windows.net/acmebot/${local.acmebot_major_version}/${var.acmebot_version}.zip"
 
   storage_account_name = coalesce(
     var.storage_account_name,
     format(
       "st%s%s",
-      substr(replace(lower(var.app_base_name), "/[^a-z0-9]/", ""), 0, 16),
-      substr(md5("${data.azurerm_client_config.current.subscription_id}/${var.resource_group_name}/${var.app_base_name}"), 0, 6),
+      substr(replace(lower(var.name), "/[^a-z0-9]/", ""), 0, 16),
+      substr(md5("${data.azurerm_client_config.current.subscription_id}/${var.resource_group_name}/${var.name}"), 0, 6),
     )
   )
 
@@ -80,6 +128,10 @@ locals {
     "Acmebot__Webhook" = var.webhook_url
   } : {}
 
+  acmebot_managed_identity = var.acmebot_managed_identity_client_id != null ? {
+    "Acmebot__ManagedIdentityClientId" = var.acmebot_managed_identity_client_id
+  } : {}
+
   common = {
     "Acmebot__Contacts"           = var.mail_address
     "Acmebot__Endpoint"           = var.acme_endpoint
@@ -103,6 +155,7 @@ locals {
     local.route_53,
     local.trans_ip,
     local.webhook_url,
+    local.acmebot_managed_identity,
   )
 
   auth_app_settings = var.auth_settings != null ? {
