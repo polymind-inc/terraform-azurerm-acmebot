@@ -132,7 +132,7 @@ module "acmebot" {
 
 - Secret inputs are marked as sensitive, but they are still stored in Terraform state when used to configure the Function App.
 - `AzureWebJobsStorage` and Flex Consumption package deployment storage use managed identity. By default this is the system-assigned identity; set `storage_managed_identity.user_assigned_resource_id` to use an attached user-assigned identity instead.
-- The selected Storage identity receives Storage Account Contributor, Storage Blob Data Owner, Storage Queue Data Contributor, and Storage Table Data Contributor on the module-created Storage Account for identity-based host storage.
+- The selected Storage identity receives Storage Blob Data Owner, Storage Queue Data Contributor, and Storage Table Data Contributor on the module-created Storage Account for identity-based host storage. Storage Account Contributor is not assigned because Acmebot uses a Timer trigger only, so the control-plane permissions required by the Blob trigger are unnecessary.
 - To make Acmebot itself use a user-assigned managed identity for workload access, also attach it through `managed_identities.user_assigned_resource_ids` and set `acmebot.managed_identity_client_id`; the module maps it to `Acmebot__ManagedIdentityClientId`.
 - Storage Account Shared Key authorization is disabled by default. Blob versioning, change feed, blob soft delete, container soft delete, Entra-first portal auth, and infrastructure encryption are enabled by default.
 
@@ -145,11 +145,12 @@ module "acmebot" {
 - Storage Account Private Endpoints use the AVM private endpoint shape. Create entries for the storage subresources your Function App needs, typically `blob`, `queue`, and `table`, and set matching `private_dns_zone_resource_ids`.
 - Private Endpoints default to the Function App `sites` subresource and manage a private DNS zone group when `private_dns_zone_resource_ids` is set.
 - IP restrictions use AVM App Service-style `site_config.ip_restriction`, `site_config.scm_ip_restriction`, `site_config.ip_restriction_default_action`, `site_config.scm_ip_restriction_default_action`, and `site_config.scm_use_main_ip_restriction`.
+- `acmebot.use_system_name_server` controls whether Acmebot resolves ACME challenge records through the system DNS resolver or through Google Public DNS (`8.8.8.8`). When unset, the module enables the system resolver automatically for VNET-integrated deployments and for sovereign cloud `acmebot.environment` values where outbound access to `8.8.8.8` is unreliable. Set it explicitly to override.
 
 ### Operations
 
 - Default diagnostic settings are created for the Function App and Storage Account resources to the module-managed or supplied Log Analytics workspace. Set `managed_diagnostic_settings_enabled = false` to manage diagnostics externally.
-- Set `log_analytics_workspace.resource_id` and/or `application_insights.resource_id` to use existing monitoring resources instead of creating new ones. When Application Insights is supplied and managed diagnostics are disabled, the module does not create a Log Analytics workspace unless one is explicitly needed elsewhere.
+- Set `log_analytics_workspace.resource_id` and/or `application_insights.resource_id` to use existing monitoring resources instead of creating new ones. The module creates a Log Analytics workspace only when it also creates Application Insights. When an existing `application_insights.resource_id` is supplied without `log_analytics_workspace.resource_id`, managed diagnostic settings are sent to the Log Analytics workspace backing that Application Insights component instead of creating a new workspace. Set `log_analytics_workspace.resource_id` to route diagnostics elsewhere.
 - Child resources inherit `var.tags` by default, support child-specific tag overrides where Azure supports tags, and use CAF-aligned default name prefixes where applicable.
 - Child resource settings can be overridden with `storage_account`, `deployment_container`, `service_plan`, `log_analytics_workspace`, and `application_insights`.
 - AVM-style `diagnostic_settings`, `lock`, `managed_identities`, `role_assignments`, and `private_endpoints` inputs can apply diagnostic settings, resource locks, managed identities, RBAC assignments, and Private Endpoints to the Function App.

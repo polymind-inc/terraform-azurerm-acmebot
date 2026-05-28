@@ -50,6 +50,7 @@ module "storage" {
   }
 
   role_assignments = {}
+  lock             = var.lock
 }
 
 module "serverfarm" {
@@ -112,7 +113,7 @@ data "azapi_resource" "application_insights" {
 
   type                   = "Microsoft.Insights/components@2020-02-02"
   resource_id            = var.application_insights.resource_id
-  response_export_values = ["properties.ConnectionString", "properties.InstrumentationKey"]
+  response_export_values = ["properties.ConnectionString", "properties.InstrumentationKey", "properties.WorkspaceResourceId"]
 }
 
 module "this" {
@@ -132,7 +133,7 @@ module "this" {
   function_app_uses_fc1  = true
   fc1_runtime_name       = "dotnet-isolated"
   fc1_runtime_version    = "10.0"
-  instance_memory_in_mb  = coalesce(var.instance_memory_in_mb, 2048)
+  instance_memory_in_mb  = var.instance_memory_in_mb
   maximum_instance_count = var.maximum_instance_count
 
   https_only                    = true

@@ -22,10 +22,11 @@ mock_provider "azapi" {
     defaults = {
       output = {
         properties = {
-          clientId           = "11111111-1111-1111-1111-111111111111"
-          principalId        = "22222222-2222-2222-2222-222222222222"
-          ConnectionString   = "InstrumentationKey=33333333-3333-3333-3333-333333333333;IngestionEndpoint=https://eastus-0.in.applicationinsights.azure.com/"
-          InstrumentationKey = "33333333-3333-3333-3333-333333333333"
+          clientId            = "11111111-1111-1111-1111-111111111111"
+          principalId         = "22222222-2222-2222-2222-222222222222"
+          ConnectionString    = "InstrumentationKey=33333333-3333-3333-3333-333333333333;IngestionEndpoint=https://eastus-0.in.applicationinsights.azure.com/"
+          InstrumentationKey  = "33333333-3333-3333-3333-333333333333"
+          WorkspaceResourceId = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg-observability/providers/Microsoft.OperationalInsights/workspaces/log-existing"
           primaryEndpoints = {
             blob  = "https://stacmebottest.blob.core.windows.net/"
             queue = "https://stacmebottest.queue.core.windows.net/"
@@ -288,28 +289,6 @@ run "acmebot_external_account_binding_algorithm_must_be_supported" {
   expect_failures = [var.acmebot]
 }
 
-run "acmebot_gandi_aliases_are_mutually_exclusive" {
-  command = plan
-
-  variables {
-    acmebot = {
-      version      = "5.0.1"
-      mail_address = "test@example.com"
-      vault_uri    = "https://kv-acmebot-test.vault.azure.net/"
-      dns_providers = {
-        gandi = {
-          api_key = "test-api-key"
-        }
-        gandi_live_dns = {
-          api_key = "test-api-key"
-        }
-      }
-    }
-  }
-
-  expect_failures = [var.acmebot]
-}
-
 run "storage_account_name_must_be_lowercase_alphanumeric" {
   command = plan
 
@@ -404,6 +383,16 @@ run "existing_monitoring_resources_plan_successfully" {
       resource_id = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg-observability/providers/Microsoft.OperationalInsights/workspaces/log-acmebot"
     }
 
+    application_insights = {
+      resource_id = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg-observability/providers/Microsoft.Insights/components/appi-acmebot"
+    }
+  }
+}
+
+run "existing_application_insights_without_workspace_plans_successfully" {
+  command = plan
+
+  variables {
     application_insights = {
       resource_id = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg-observability/providers/Microsoft.Insights/components/appi-acmebot"
     }

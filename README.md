@@ -133,7 +133,7 @@ module "acmebot" {
 
 - Secret inputs are marked as sensitive, but they are still stored in Terraform state when used to configure the Function App.
 - `AzureWebJobsStorage` and Flex Consumption package deployment storage use managed identity. By default this is the system-assigned identity; set `storage_managed_identity.user_assigned_resource_id` to use an attached user-assigned identity instead.
-- The selected Storage identity receives Storage Account Contributor, Storage Blob Data Owner, Storage Queue Data Contributor, and Storage Table Data Contributor on the module-created Storage Account for identity-based host storage.
+- The selected Storage identity receives Storage Blob Data Owner, Storage Queue Data Contributor, and Storage Table Data Contributor on the module-created Storage Account for identity-based host storage. Storage Account Contributor is not assigned because Acmebot uses a Timer trigger only, so the control-plane permissions required by the Blob trigger are unnecessary.
 - To make Acmebot itself use a user-assigned managed identity for workload access, also attach it through `managed_identities.user_assigned_resource_ids` and set `acmebot.managed_identity_client_id`; the module maps it to `Acmebot__ManagedIdentityClientId`.
 - Storage Account Shared Key authorization is disabled by default. Blob versioning, change feed, blob soft delete, container soft delete, Entra-first portal auth, and infrastructure encryption are enabled by default.
 
@@ -146,11 +146,12 @@ module "acmebot" {
 - Storage Account Private Endpoints use the AVM private endpoint shape. Create entries for the storage subresources your Function App needs, typically `blob`, `queue`, and `table`, and set matching `private_dns_zone_resource_ids`.
 - Private Endpoints default to the Function App `sites` subresource and manage a private DNS zone group when `private_dns_zone_resource_ids` is set.
 - IP restrictions use AVM App Service-style `site_config.ip_restriction`, `site_config.scm_ip_restriction`, `site_config.ip_restriction_default_action`, `site_config.scm_ip_restriction_default_action`, and `site_config.scm_use_main_ip_restriction`.
+- `acmebot.use_system_name_server` controls whether Acmebot resolves ACME challenge records through the system DNS resolver or through Google Public DNS (`8.8.8.8`). When unset, the module enables the system resolver automatically for VNET-integrated deployments and for sovereign cloud `acmebot.environment` values where outbound access to `8.8.8.8` is unreliable. Set it explicitly to override.
 
 ### Operations
 
 - Default diagnostic settings are created for the Function App and Storage Account resources to the module-managed or supplied Log Analytics workspace. Set `managed_diagnostic_settings_enabled = false` to manage diagnostics externally.
-- Set `log_analytics_workspace.resource_id` and/or `application_insights.resource_id` to use existing monitoring resources instead of creating new ones. When Application Insights is supplied and managed diagnostics are disabled, the module does not create a Log Analytics workspace unless one is explicitly needed elsewhere.
+- Set `log_analytics_workspace.resource_id` and/or `application_insights.resource_id` to use existing monitoring resources instead of creating new ones. The module creates a Log Analytics workspace only when it also creates Application Insights. When an existing `application_insights.resource_id` is supplied without `log_analytics_workspace.resource_id`, managed diagnostic settings are sent to the Log Analytics workspace backing that Application Insights component instead of creating a new workspace. Set `log_analytics_workspace.resource_id` to route diagnostics elsewhere.
 - Child resources inherit `var.tags` by default, support child-specific tag overrides where Azure supports tags, and use CAF-aligned default name prefixes where applicable.
 - Child resource settings can be overridden with `storage_account`, `deployment_container`, `service_plan`, `log_analytics_workspace`, and `application_insights`.
 - AVM-style `diagnostic_settings`, `lock`, `managed_identities`, `role_assignments`, and `private_endpoints` inputs can apply diagnostic settings, resource locks, managed identities, RBAC assignments, and Private Endpoints to the Function App.
@@ -208,11 +209,11 @@ Description: Controls Acmebot workload configuration. This object is sensitive b
 - `preferred_chain` - (Optional) Preferred issuer chain name when the ACME CA offers alternate chains.
 - `preferred_profile` - (Optional) Preferred ACME profile when the CA advertises profiles.
 - `renew_before_expiry` - (Optional) Number of days before certificate expiry when scheduled renewal should run. Defaults to `30`.
-- `use_system_name_server` - (Optional) Whether Acmebot uses the system DNS resolver instead of Google Public DNS for challenge verification. Defaults to `false`.
+- `use_system_name_server` - (Optional) Whether Acmebot uses the system DNS resolver instead of Google Public DNS for challenge verification. Defaults to `true` when `virtual_network_subnet_id` is set or `environment` is a sovereign cloud, and `false` otherwise. Set explicitly to override.
 - `app_role_required` - (Optional) Whether additional app role assignment is required during Microsoft Entra authentication. Defaults to `false`.
 - `managed_identity_client_id` - (Optional) The client ID of the user-assigned managed identity Acmebot should use. When set, the identity must also be attached through `managed_identities.user_assigned_resource_ids`.
 - `external_account_binding` - (Optional) External Account Binding settings for ACME providers that require account binding.
-- `dns_providers` - (Optional) DNS provider settings for Acmebot. Supported providers are `akamai`, `azure_dns`, `azure_private_dns`, `cloudflare`, `custom_dns`, `dns_made_easy`, `gandi_live_dns`, `go_daddy`, `google_dns`, `ionos_dns`, `ovh`, `power_dns`, `regfish`, `route_53`, `trans_ip`, and `united_domains`. `gandi` is kept as a deprecated alias for `gandi_live_dns`.
+- `dns_providers` - (Optional) DNS provider settings for Acmebot. Supported providers are `akamai`, `azure_dns`, `azure_private_dns`, `cloudflare`, `custom_dns`, `dns_made_easy`, `gandi_live_dns`, `go_daddy`, `google_dns`, `ionos_dns`, `ovh`, `power_dns`, `regfish`, `route_53`, `trans_ip`, and `united_domains`.
 
 Type:
 
@@ -227,7 +228,7 @@ object({
     preferred_chain            = optional(string, null)
     preferred_profile          = optional(string, null)
     renew_before_expiry        = optional(number, 30)
-    use_system_name_server     = optional(bool, false)
+    use_system_name_server     = optional(bool, null)
     app_role_required          = optional(bool, false)
     managed_identity_client_id = optional(string, null)
     external_account_binding = optional(object({
@@ -260,9 +261,6 @@ object({
       dns_made_easy = optional(object({
         api_key    = string
         secret_key = string
-      }), null)
-      gandi = optional(object({
-        api_key = string
       }), null)
       gandi_live_dns = optional(object({
         api_key = string
@@ -455,11 +453,11 @@ Default: `false`
 
 ### <a name="input_instance_memory_in_mb"></a> [instance\_memory\_in\_mb](#input\_instance\_memory\_in\_mb)
 
-Description: Optional memory size in MB for Flex Consumption instances. Supported values are 512, 2048, and 4096.
+Description: Memory size in MB for Flex Consumption instances. Supported values are 512, 2048, and 4096. Defaults to 2048.
 
 Type: `number`
 
-Default: `null`
+Default: `2048`
 
 ### <a name="input_lock"></a> [lock](#input\_lock)
 
