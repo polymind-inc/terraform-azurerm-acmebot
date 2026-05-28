@@ -43,7 +43,7 @@ jobs:
       matrix:
         working-directory:
         - .
-        - example
+        - examples/default
 
     steps:
     - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
@@ -60,6 +60,24 @@ jobs:
     - name: Validate Terraform
       working-directory: ${{ matrix.working-directory }}
       run: terraform validate
+
+  terraform-test:
+    name: Terraform unit tests
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+    - name: Setup Terraform CLI
+      uses: hashicorp/setup-terraform@dfe3c3f87815947d99a8997f908cb6525fc44e9e # v4.0.1
+      with:
+        terraform_version: ${{ env.TERRAFORM_VERSION }}
+
+    - name: Initialize Terraform
+      run: terraform init -backend=false
+
+    - name: Run unit tests
+      run: terraform test -test-directory=tests/unit
 
   docs:
     name: Generated docs

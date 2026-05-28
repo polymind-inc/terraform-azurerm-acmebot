@@ -12,11 +12,32 @@ variable "name" {
 variable "resource_group_name" {
   type        = string
   description = "Resource group name to be added."
+  nullable    = false
+
+  validation {
+    condition     = can(regex("^[-\\w\\._\\(\\)]{1,90}$", var.resource_group_name)) && !endswith(var.resource_group_name, ".")
+    error_message = "resource_group_name must be 1-90 characters; contain only letters, numbers, hyphens, underscores, periods, and parentheses; and must not end with a period."
+  }
 }
 
 variable "location" {
   type        = string
   description = "Azure region to create resources."
+  nullable    = false
+
+  validation {
+    condition     = length(var.location) > 0
+    error_message = "location must not be empty."
+  }
+}
+
+variable "enable_telemetry" {
+  type        = bool
+  description = <<DESCRIPTION
+Whether to enable AVM telemetry on the underlying Azure Verified Modules consumed by this module. When `true`, the value is forwarded to every AVM child module's `enable_telemetry` input. Defaults to `false` because this module is a community pattern and is not an official Azure Verified Module; consumers must opt in explicitly to send telemetry through the AVM `modtm` provider.
+DESCRIPTION
+  default     = false
+  nullable    = false
 }
 
 variable "auth_settings" {
@@ -24,20 +45,24 @@ variable "auth_settings" {
     enabled = bool
     active_directory = object({
       client_id            = string
-      client_secret        = string
       tenant_auth_endpoint = string
     })
   })
   description = <<DESCRIPTION
-Controls App Service Authentication for the Function App.
+Controls App Service Authentication for the Function App. The client secret is supplied separately via `var.auth_settings_client_secret`.
 
 - `enabled` - (Required) Whether App Service Authentication is enabled.
 - `active_directory.client_id` - (Required) The Microsoft Entra application client ID.
-- `active_directory.client_secret` - (Required) The Microsoft Entra application client secret. This value is stored in Terraform state.
 - `active_directory.tenant_auth_endpoint` - (Required) The tenant-specific Microsoft Entra authorization endpoint.
 DESCRIPTION
   default     = null
+}
+
+variable "auth_settings_client_secret" {
+  type        = string
+  default     = null
   sensitive   = true
+  description = "The Microsoft Entra application client secret used by App Service Authentication. Required when `var.auth_settings` is set. The value is wired to the Function App as the `MICROSOFT_PROVIDER_AUTHENTICATION_SECRET` app setting and stored in Terraform state."
 }
 
 variable "diagnostic_settings" {
@@ -102,7 +127,6 @@ variable "private_endpoints" {
     network_interface_name                  = optional(string, null)
     location                                = optional(string, null)
     resource_group_name                     = optional(string, null)
-    inherit_lock                            = optional(bool, true)
     lock = optional(object({
       kind = string
       name = optional(string, null)
@@ -111,7 +135,6 @@ variable "private_endpoints" {
     ip_configurations = optional(map(object({
       name               = string
       private_ip_address = string
-      member_name        = optional(string, null)
     })), {})
     role_assignments = optional(map(object({
       role_definition_id_or_name             = string
@@ -137,8 +160,7 @@ A map of private endpoints to create for the Function App. The map key is delibe
 - `network_interface_name` - (Optional) The private endpoint network interface name.
 - `location` - (Optional) The private endpoint location. Defaults to `var.location`.
 - `resource_group_name` - (Optional) The private endpoint resource group name. Defaults to `var.resource_group_name`.
-- `inherit_lock` - (Optional) Whether this private endpoint inherits `var.lock` when no endpoint-specific lock is set. Defaults to `true`.
-- `lock` - (Optional) The lock to apply to this private endpoint.
+- `lock` - (Optional) The lock to apply to this private endpoint. When unset, `var.lock` is inherited.
 - `tags` - (Optional) Tags to apply to this private endpoint. When unset, `var.tags` is inherited.
 - `ip_configurations` - (Optional) A map of static IP configurations for the private endpoint.
 - `role_assignments` - (Optional) A map of role assignments to create on this private endpoint.
@@ -215,6 +237,7 @@ variable "tags" {
   type        = map(string)
   description = "(Optional) Tags of the resource."
   default     = null
+  nullable    = true
 }
 
 variable "site_config" {
@@ -416,7 +439,6 @@ variable "storage_account" {
       network_interface_name                  = optional(string, null)
       location                                = optional(string, null)
       resource_group_name                     = optional(string, null)
-      inherit_lock                            = optional(bool, true)
       lock = optional(object({
         kind = string
         name = optional(string, null)
@@ -425,7 +447,6 @@ variable "storage_account" {
       ip_configurations = optional(map(object({
         name               = string
         private_ip_address = string
-        member_name        = optional(string, null)
       })), {})
       role_assignments = optional(map(object({
         role_definition_id_or_name             = string
@@ -457,8 +478,7 @@ Controls the Storage Account used by the Function App deployment package.
 - `private_endpoints.network_interface_name` - (Optional) The private endpoint network interface name.
 - `private_endpoints.location` - (Optional) The private endpoint location. Defaults to `var.location`.
 - `private_endpoints.resource_group_name` - (Optional) The private endpoint resource group name. Defaults to `var.resource_group_name`.
-- `private_endpoints.inherit_lock` - (Optional) Whether this private endpoint inherits `var.lock` when no endpoint-specific lock is set. Defaults to `true`.
-- `private_endpoints.lock` - (Optional) The lock to apply to this private endpoint.
+- `private_endpoints.lock` - (Optional) The lock to apply to this private endpoint. When unset, `var.lock` is inherited.
 - `private_endpoints.tags` - (Optional) Tags to apply to the private endpoint. When unset, `var.tags` is inherited.
 - `private_endpoints.ip_configurations` - (Optional) A map of static IP configurations for the private endpoint.
 - `private_endpoints.role_assignments` - (Optional) A map of role assignments to create on this private endpoint.

@@ -65,10 +65,11 @@ module "acmebot" {
     enabled = true
     active_directory = {
       client_id            = azuread_application.default.client_id
-      client_secret        = azuread_application_password.default.value
       tenant_auth_endpoint = "https://sts.windows.net/${data.azurerm_client_config.current.tenant_id}/v2.0"
     }
   }
+
+  auth_settings_client_secret = azuread_application_password.default.value
 
   virtual_network_subnet_id = "/subscriptions/xxxx/resourceGroups/rg-network/providers/Microsoft.Network/virtualNetworks/vnet-acmebot/subnets/snet-acmebot"
 

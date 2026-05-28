@@ -1,112 +1,31 @@
-
 locals {
   function_app_name = var.name
   tags              = var.tags
 
-  role_definition_resource_substring = "providers/microsoft\\.authorization/roledefinitions"
-
-  managed_identities = {
-    system_assigned_user_assigned = (var.managed_identities.system_assigned || length(var.managed_identities.user_assigned_resource_ids) > 0) ? {
-      this = {
-        type                       = var.managed_identities.system_assigned && length(var.managed_identities.user_assigned_resource_ids) > 0 ? "SystemAssigned, UserAssigned" : length(var.managed_identities.user_assigned_resource_ids) > 0 ? "UserAssigned" : "SystemAssigned"
-        user_assigned_resource_ids = var.managed_identities.user_assigned_resource_ids
-      }
-    } : {}
-  }
-
-  private_endpoint_application_security_group_associations = {
-    for association in flatten([
-      for private_endpoint_key, private_endpoint in var.private_endpoints : [
-        for association_key, application_security_group_resource_id in private_endpoint.application_security_group_associations : {
-          key                                    = "${private_endpoint_key}.${association_key}"
-          private_endpoint_key                   = private_endpoint_key
-          application_security_group_resource_id = application_security_group_resource_id
-        }
-      ]
-    ]) : association.key => association
-  }
-
-  private_endpoint_locks = {
-    for private_endpoint_key, private_endpoint in var.private_endpoints : private_endpoint_key => (private_endpoint.lock != null ? private_endpoint.lock : var.lock)
-    if private_endpoint.lock != null || (private_endpoint.inherit_lock && var.lock != null)
-  }
-
-  private_endpoint_role_assignments = {
-    for assignment in flatten([
-      for private_endpoint_key, private_endpoint in var.private_endpoints : [
-        for assignment_key, assignment in private_endpoint.role_assignments : merge(assignment, {
-          key                  = "${private_endpoint_key}.${assignment_key}"
-          private_endpoint_key = private_endpoint_key
-        })
-      ]
-    ]) : assignment.key => assignment
-  }
-
-  private_endpoint_resource_ids = merge(
-    { for key, private_endpoint in azurerm_private_endpoint.function_app : key => private_endpoint.id },
-    { for key, private_endpoint in azurerm_private_endpoint.function_app_unmanaged_dns_zone_groups : key => private_endpoint.id },
-  )
-
-  private_endpoint_names = merge(
-    { for key, private_endpoint in azurerm_private_endpoint.function_app : key => private_endpoint.name },
-    { for key, private_endpoint in azurerm_private_endpoint.function_app_unmanaged_dns_zone_groups : key => private_endpoint.name },
-  )
-
-  storage_account_private_endpoint_application_security_group_associations = {
-    for association in flatten([
-      for private_endpoint_key, private_endpoint in var.storage_account.private_endpoints : [
-        for association_key, application_security_group_resource_id in private_endpoint.application_security_group_associations : {
-          key                                    = "${private_endpoint_key}.${association_key}"
-          private_endpoint_key                   = private_endpoint_key
-          application_security_group_resource_id = application_security_group_resource_id
-        }
-      ]
-    ]) : association.key => association
-  }
-
-  storage_account_private_endpoint_locks = {
-    for private_endpoint_key, private_endpoint in var.storage_account.private_endpoints : private_endpoint_key => (private_endpoint.lock != null ? private_endpoint.lock : var.lock)
-    if private_endpoint.lock != null || (private_endpoint.inherit_lock && var.lock != null)
-  }
-
-  storage_account_private_endpoint_role_assignments = {
-    for assignment in flatten([
-      for private_endpoint_key, private_endpoint in var.storage_account.private_endpoints : [
-        for assignment_key, assignment in private_endpoint.role_assignments : merge(assignment, {
-          key                  = "${private_endpoint_key}.${assignment_key}"
-          private_endpoint_key = private_endpoint_key
-        })
-      ]
-    ]) : assignment.key => assignment
-  }
-
-  storage_account_private_endpoint_resource_ids = merge(
-    { for key, private_endpoint in azurerm_private_endpoint.storage : key => private_endpoint.id },
-    { for key, private_endpoint in azurerm_private_endpoint.storage_unmanaged_dns_zone_groups : key => private_endpoint.id },
-  )
-
-  storage_account_private_endpoint_names = merge(
-    { for key, private_endpoint in azurerm_private_endpoint.storage : key => private_endpoint.name },
-    { for key, private_endpoint in azurerm_private_endpoint.storage_unmanaged_dns_zone_groups : key => private_endpoint.name },
-  )
-
-  acmebot_major_version = "v${split(".", var.acmebot.version)[0]}"
-  acmebot_package_uri   = "https://stacmebotprod.blob.core.windows.net/acmebot/${local.acmebot_major_version}/${var.acmebot.version}.zip"
+  resource_group_id = "/subscriptions/${data.azapi_client_config.current.subscription_id}/resourceGroups/${var.resource_group_name}"
 
   storage_account_name = coalesce(
     var.storage_account.name,
     format(
       "st%s%s",
       substr(replace(lower(var.name), "/[^a-z0-9]/", ""), 0, 16),
-      substr(md5("${data.azurerm_client_config.current.subscription_id}/${var.resource_group_name}/${var.name}"), 0, 6),
+      substr(md5("${data.azapi_client_config.current.subscription_id}/${var.resource_group_name}/${var.name}"), 0, 6),
     )
   )
 
-  deployment_container_name = format(
-    "app-package-%s-%s",
-    trim(substr(replace(replace(lower(local.function_app_name), "/[^a-z0-9-]/", ""), "/-+/", "-"), 0, 43), "-"),
-    random_string.deployment_container_suffix.result,
+  deployment_container_name = coalesce(
+    var.deployment_container.name,
+    format(
+      "app-package-%s-%s",
+      trim(substr(replace(replace(lower(local.function_app_name), "/[^a-z0-9-]/", ""), "/-+/", "-"), 0, 43), "-"),
+      random_string.deployment_container_suffix.result,
+    )
   )
+
+  storage_container_endpoint_url = "https://${local.storage_account_name}.blob.core.windows.net/${local.deployment_container_name}"
+
+  acmebot_major_version = "v${split(".", var.acmebot.version)[0]}"
+  acmebot_package_uri   = "https://stacmebotprod.blob.core.windows.net/acmebot/${local.acmebot_major_version}/${var.acmebot.version}.zip"
 
   external_account_binding = var.acmebot.external_account_binding != null ? {
     "Acmebot__ExternalAccountBinding__KeyId"     = var.acmebot.external_account_binding.key_id
@@ -175,8 +94,8 @@ locals {
     "Acmebot__Endpoint"           = var.acmebot.acme_endpoint
     "Acmebot__VaultBaseUrl"       = var.acmebot.vault_uri
     "Acmebot__Environment"        = var.acmebot.environment
-    "Acmebot__MitigateChainOrder" = var.acmebot.mitigate_chain_order
-    "Acmebot__AppRoleRequired"    = var.acmebot.app_role_required
+    "Acmebot__MitigateChainOrder" = tostring(var.acmebot.mitigate_chain_order)
+    "Acmebot__AppRoleRequired"    = tostring(var.acmebot.app_role_required)
   }
 
   acmebot_app_settings = merge(
@@ -197,6 +116,44 @@ locals {
   )
 
   auth_app_settings = var.auth_settings != null ? {
-    "MICROSOFT_PROVIDER_AUTHENTICATION_SECRET" = var.auth_settings.active_directory.client_secret
+    "MICROSOFT_PROVIDER_AUTHENTICATION_SECRET" = var.auth_settings_client_secret
   } : {}
+
+  function_app_settings = merge(
+    var.additional_app_settings,
+    local.acmebot_app_settings,
+    local.auth_app_settings,
+  )
+
+  auth_settings_v2 = var.auth_settings != null ? {
+    auth_enabled                  = var.auth_settings.enabled
+    require_authentication        = true
+    redirect_to_provider          = "azureactivedirectory"
+    unauthenticated_client_action = "RedirectToLoginPage"
+    identity_providers = {
+      azure_active_directory = {
+        enabled = true
+        registration = {
+          client_id                  = var.auth_settings.active_directory.client_id
+          client_secret_setting_name = "MICROSOFT_PROVIDER_AUTHENTICATION_SECRET"
+          open_id_issuer             = var.auth_settings.active_directory.tenant_auth_endpoint
+        }
+      }
+    }
+    login = {
+      token_store = {
+        enabled = false
+      }
+    }
+  } : null
+
+  storage_account_sku_name = "Standard_${var.storage_account.account_replication_type}"
+
+  storage_account_role_assignments = {
+    function_app_blob_data_owner = {
+      role_definition_id_or_name = "Storage Blob Data Owner"
+      principal_id               = module.this.system_assigned_mi_principal_id
+      principal_type             = "ServicePrincipal"
+    }
+  }
 }
