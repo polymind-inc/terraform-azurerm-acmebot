@@ -29,7 +29,32 @@ module "acmebot" {
   }
 
   storage_account = {
-    account_replication_type = "ZRS"
+    account_replication_type      = "ZRS"
+    public_network_access_enabled = false
+
+    private_endpoints = {
+      blob = {
+        subnet_resource_id = "/subscriptions/xxxx/resourceGroups/rg-network/providers/Microsoft.Network/virtualNetworks/vnet-acmebot/subnets/snet-storage-private-endpoints"
+        subresource_name   = "blob"
+        private_dns_zone_resource_ids = [
+          "/subscriptions/xxxx/resourceGroups/rg-network/providers/Microsoft.Network/privateDnsZones/privatelink.blob.core.windows.net"
+        ]
+      }
+      queue = {
+        subnet_resource_id = "/subscriptions/xxxx/resourceGroups/rg-network/providers/Microsoft.Network/virtualNetworks/vnet-acmebot/subnets/snet-storage-private-endpoints"
+        subresource_name   = "queue"
+        private_dns_zone_resource_ids = [
+          "/subscriptions/xxxx/resourceGroups/rg-network/providers/Microsoft.Network/privateDnsZones/privatelink.queue.core.windows.net"
+        ]
+      }
+      table = {
+        subnet_resource_id = "/subscriptions/xxxx/resourceGroups/rg-network/providers/Microsoft.Network/virtualNetworks/vnet-acmebot/subnets/snet-storage-private-endpoints"
+        subresource_name   = "table"
+        private_dns_zone_resource_ids = [
+          "/subscriptions/xxxx/resourceGroups/rg-network/providers/Microsoft.Network/privateDnsZones/privatelink.table.core.windows.net"
+        ]
+      }
+    }
   }
 
   log_analytics_workspace = {
@@ -102,6 +127,8 @@ module "acmebot" {
 - Child resources inherit `var.tags` by default, support child-specific tag overrides where Azure supports tags, and use CAF-aligned default name prefixes where applicable.
 - Child resource settings can be overridden with `storage_account`, `deployment_container`, `service_plan`, `log_analytics_workspace`, and `application_insights`.
 - VNET integration uses the AVM App Service naming pattern `virtual_network_subnet_id`, and outbound route-all is configured with `site_config.vnet_route_all_enabled`.
+- When `virtual_network_subnet_id` is set, `storage_account.private_endpoints` is required so Azure Functions can access its Storage Account through Private Endpoint. The Flex Consumption VNET integration subnet cannot be shared with Private Endpoints, so provide a separate subnet.
+- Storage Account Private Endpoints use the AVM private endpoint shape. Create entries for the storage subresources your Function App needs, typically `blob`, `queue`, and `table`, and set matching `private_dns_zone_resource_ids`.
 - IP restrictions use AVM App Service-style `site_config.ip_restriction`, `site_config.scm_ip_restriction`, `site_config.ip_restriction_default_action`, `site_config.scm_ip_restriction_default_action`, and `site_config.scm_use_main_ip_restriction`.
 - Private Endpoints default to the Function App `sites` subresource and manage a private DNS zone group when `private_dns_zone_resource_ids` is set.
 - Acmebot deployment uses Azure Functions zip deploy. The package URI is built from `acmebot.version` as `https://stacmebotprod.blob.core.windows.net/acmebot/v<major>/<version>.zip`.

@@ -52,6 +52,44 @@ locals {
     { for key, private_endpoint in azurerm_private_endpoint.function_app_unmanaged_dns_zone_groups : key => private_endpoint.name },
   )
 
+  storage_account_private_endpoint_application_security_group_associations = {
+    for association in flatten([
+      for private_endpoint_key, private_endpoint in var.storage_account.private_endpoints : [
+        for association_key, application_security_group_resource_id in private_endpoint.application_security_group_associations : {
+          key                                    = "${private_endpoint_key}.${association_key}"
+          private_endpoint_key                   = private_endpoint_key
+          application_security_group_resource_id = application_security_group_resource_id
+        }
+      ]
+    ]) : association.key => association
+  }
+
+  storage_account_private_endpoint_locks = {
+    for private_endpoint_key, private_endpoint in var.storage_account.private_endpoints : private_endpoint_key => (private_endpoint.lock != null ? private_endpoint.lock : var.lock)
+    if private_endpoint.lock != null || (private_endpoint.inherit_lock && var.lock != null)
+  }
+
+  storage_account_private_endpoint_role_assignments = {
+    for assignment in flatten([
+      for private_endpoint_key, private_endpoint in var.storage_account.private_endpoints : [
+        for assignment_key, assignment in private_endpoint.role_assignments : merge(assignment, {
+          key                  = "${private_endpoint_key}.${assignment_key}"
+          private_endpoint_key = private_endpoint_key
+        })
+      ]
+    ]) : assignment.key => assignment
+  }
+
+  storage_account_private_endpoint_resource_ids = merge(
+    { for key, private_endpoint in azurerm_private_endpoint.storage : key => private_endpoint.id },
+    { for key, private_endpoint in azurerm_private_endpoint.storage_unmanaged_dns_zone_groups : key => private_endpoint.id },
+  )
+
+  storage_account_private_endpoint_names = merge(
+    { for key, private_endpoint in azurerm_private_endpoint.storage : key => private_endpoint.name },
+    { for key, private_endpoint in azurerm_private_endpoint.storage_unmanaged_dns_zone_groups : key => private_endpoint.name },
+  )
+
   acmebot_major_version = "v${split(".", var.acmebot.version)[0]}"
   acmebot_package_uri   = "https://stacmebotprod.blob.core.windows.net/acmebot/${local.acmebot_major_version}/${var.acmebot.version}.zip"
 

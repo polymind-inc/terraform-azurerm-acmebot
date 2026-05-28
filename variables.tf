@@ -402,15 +402,66 @@ DESCRIPTION
 
 variable "storage_account" {
   type = object({
-    name                     = optional(string, null)
-    account_replication_type = optional(string, "LRS")
-    tags                     = optional(map(string), null)
+    name                          = optional(string, null)
+    account_replication_type      = optional(string, "LRS")
+    public_network_access_enabled = optional(bool, null)
+    private_endpoints = optional(map(object({
+      name                                    = optional(string, null)
+      subnet_resource_id                      = string
+      subresource_name                        = string
+      private_dns_zone_group_name             = optional(string, "default")
+      private_dns_zone_resource_ids           = optional(set(string), [])
+      application_security_group_associations = optional(map(string), {})
+      private_service_connection_name         = optional(string, null)
+      network_interface_name                  = optional(string, null)
+      location                                = optional(string, null)
+      resource_group_name                     = optional(string, null)
+      inherit_lock                            = optional(bool, true)
+      lock = optional(object({
+        kind = string
+        name = optional(string, null)
+      }), null)
+      tags = optional(map(string), null)
+      ip_configurations = optional(map(object({
+        name               = string
+        private_ip_address = string
+        member_name        = optional(string, null)
+      })), {})
+      role_assignments = optional(map(object({
+        role_definition_id_or_name             = string
+        principal_id                           = string
+        description                            = optional(string, null)
+        skip_service_principal_aad_check       = optional(bool, false)
+        condition                              = optional(string, null)
+        condition_version                      = optional(string, null)
+        delegated_managed_identity_resource_id = optional(string, null)
+        principal_type                         = optional(string, null)
+      })), {})
+    })), {})
+    tags = optional(map(string), null)
   })
   description = <<DESCRIPTION
 Controls the Storage Account used by the Function App deployment package.
 
 - `name` - (Optional) The name of the Storage Account. When unset, the module generates a deterministic globally unique name.
 - `account_replication_type` - (Optional) The replication type for the Storage Account. Possible values are `LRS`, `GRS`, `RAGRS`, `ZRS`, `GZRS`, and `RAGZRS`. Defaults to `LRS`.
+- `public_network_access_enabled` - (Optional) Whether public network access is enabled for the Storage Account. When unset, the provider default is used.
+- `private_endpoints` - (Optional) A map of private endpoints to create for the Storage Account. When `virtual_network_subnet_id` is set, configure at least one endpoint so the Function App can access storage through Private Endpoint. The map key is deliberately arbitrary to avoid issues where map keys may be unknown at plan time.
+- `private_endpoints.name` - (Optional) The name of the private endpoint. One will be generated if not set.
+- `private_endpoints.subnet_resource_id` - (Required) The resource ID of the subnet where the private endpoint will be created. This must be different from the Flex Consumption VNET integration subnet.
+- `private_endpoints.subresource_name` - (Required) The Storage Account subresource name. Possible values are `blob`, `queue`, `table`, `file`, `web`, and `dfs`.
+- `private_endpoints.private_dns_zone_group_name` - (Optional) The private DNS zone group name. Defaults to `default`.
+- `private_endpoints.private_dns_zone_resource_ids` - (Optional) A set of private DNS zone resource IDs to associate with the private endpoint.
+- `private_endpoints.application_security_group_associations` - (Optional) A map of application security group resource IDs to associate with the private endpoint.
+- `private_endpoints.private_service_connection_name` - (Optional) The private service connection name. One will be generated if not set.
+- `private_endpoints.network_interface_name` - (Optional) The private endpoint network interface name.
+- `private_endpoints.location` - (Optional) The private endpoint location. Defaults to `var.location`.
+- `private_endpoints.resource_group_name` - (Optional) The private endpoint resource group name. Defaults to `var.resource_group_name`.
+- `private_endpoints.inherit_lock` - (Optional) Whether this private endpoint inherits `var.lock` when no endpoint-specific lock is set. Defaults to `true`.
+- `private_endpoints.lock` - (Optional) The lock to apply to this private endpoint.
+- `private_endpoints.tags` - (Optional) Tags to apply to the private endpoint. When unset, `var.tags` is inherited.
+- `private_endpoints.ip_configurations` - (Optional) A map of static IP configurations for the private endpoint.
+- `private_endpoints.role_assignments` - (Optional) A map of role assignments to create on this private endpoint.
 - `tags` - (Optional) Tags to apply to the Storage Account. When unset, `var.tags` is inherited.
 DESCRIPTION
   default     = {}
@@ -424,6 +475,63 @@ DESCRIPTION
   validation {
     condition     = contains(["LRS", "GRS", "RAGRS", "ZRS", "GZRS", "RAGZRS"], var.storage_account.account_replication_type)
     error_message = "storage_account.account_replication_type must be one of: \"LRS\", \"GRS\", \"RAGRS\", \"ZRS\", \"GZRS\", or \"RAGZRS\"."
+  }
+
+  validation {
+    condition = alltrue([
+      for private_endpoint in values(var.storage_account.private_endpoints) : can(regex("^/subscriptions/[^/]+/resourcegroups/[^/]+/providers/microsoft\\.network/virtualnetworks/[^/]+/subnets/[^/]+$", lower(private_endpoint.subnet_resource_id)))
+    ])
+    error_message = "storage_account.private_endpoints[*].subnet_resource_id must be a valid subnet resource ID."
+  }
+
+  validation {
+    condition = alltrue([
+      for private_endpoint in values(var.storage_account.private_endpoints) : contains(["blob", "queue", "table", "file", "web", "dfs"], private_endpoint.subresource_name)
+    ])
+    error_message = "storage_account.private_endpoints[*].subresource_name must be one of: \"blob\", \"queue\", \"table\", \"file\", \"web\", or \"dfs\"."
+  }
+
+  validation {
+    condition = alltrue(flatten([
+      for private_endpoint in values(var.storage_account.private_endpoints) : [
+        for private_dns_zone_resource_id in private_endpoint.private_dns_zone_resource_ids : can(regex("^/subscriptions/[^/]+/resourcegroups/[^/]+/providers/microsoft\\.network/privatednszones/[^/]+$", lower(private_dns_zone_resource_id)))
+      ]
+    ]))
+    error_message = "storage_account.private_endpoints[*].private_dns_zone_resource_ids must contain valid private DNS zone resource IDs."
+  }
+
+  validation {
+    condition = alltrue(flatten([
+      for private_endpoint in values(var.storage_account.private_endpoints) : [
+        for application_security_group_resource_id in values(private_endpoint.application_security_group_associations) : can(regex("^/subscriptions/[^/]+/resourcegroups/[^/]+/providers/microsoft\\.network/applicationsecuritygroups/[^/]+$", lower(application_security_group_resource_id)))
+      ]
+    ]))
+    error_message = "storage_account.private_endpoints[*].application_security_group_associations values must be valid application security group resource IDs."
+  }
+
+  validation {
+    condition = alltrue([
+      for private_endpoint in values(var.storage_account.private_endpoints) : private_endpoint.lock == null ? true : contains(["CanNotDelete", "ReadOnly"], private_endpoint.lock.kind)
+    ])
+    error_message = "storage_account.private_endpoints[*].lock.kind must be either \"CanNotDelete\" or \"ReadOnly\"."
+  }
+
+  validation {
+    condition = alltrue(flatten([
+      for private_endpoint in values(var.storage_account.private_endpoints) : [
+        for assignment in values(private_endpoint.role_assignments) : assignment.condition_version == null || assignment.condition_version == "2.0"
+      ]
+    ]))
+    error_message = "storage_account.private_endpoints[*].role_assignments[*].condition_version must be null or \"2.0\"."
+  }
+
+  validation {
+    condition = alltrue(flatten([
+      for private_endpoint in values(var.storage_account.private_endpoints) : [
+        for assignment in values(private_endpoint.role_assignments) : assignment.principal_type == null || contains(["User", "Group", "ServicePrincipal"], assignment.principal_type)
+      ]
+    ]))
+    error_message = "storage_account.private_endpoints[*].role_assignments[*].principal_type must be null, \"User\", \"Group\", or \"ServicePrincipal\"."
   }
 }
 

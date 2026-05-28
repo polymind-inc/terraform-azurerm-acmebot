@@ -184,6 +184,34 @@ module "acmebot" {
   #
   # virtual_network_subnet_id = "/subscriptions/xxxx/resourceGroups/rg-network/providers/Microsoft.Network/virtualNetworks/vnet-acmebot/subnets/snet-acmebot"
   #
+  # storage_account = {
+  #   public_network_access_enabled = false
+  #
+  #   private_endpoints = {
+  #     blob = {
+  #       subnet_resource_id = "/subscriptions/xxxx/resourceGroups/rg-network/providers/Microsoft.Network/virtualNetworks/vnet-acmebot/subnets/snet-storage-private-endpoints"
+  #       subresource_name   = "blob"
+  #       private_dns_zone_resource_ids = [
+  #         "/subscriptions/xxxx/resourceGroups/rg-network/providers/Microsoft.Network/privateDnsZones/privatelink.blob.core.windows.net"
+  #       ]
+  #     }
+  #     queue = {
+  #       subnet_resource_id = "/subscriptions/xxxx/resourceGroups/rg-network/providers/Microsoft.Network/virtualNetworks/vnet-acmebot/subnets/snet-storage-private-endpoints"
+  #       subresource_name   = "queue"
+  #       private_dns_zone_resource_ids = [
+  #         "/subscriptions/xxxx/resourceGroups/rg-network/providers/Microsoft.Network/privateDnsZones/privatelink.queue.core.windows.net"
+  #       ]
+  #     }
+  #     table = {
+  #       subnet_resource_id = "/subscriptions/xxxx/resourceGroups/rg-network/providers/Microsoft.Network/virtualNetworks/vnet-acmebot/subnets/snet-storage-private-endpoints"
+  #       subresource_name   = "table"
+  #       private_dns_zone_resource_ids = [
+  #         "/subscriptions/xxxx/resourceGroups/rg-network/providers/Microsoft.Network/privateDnsZones/privatelink.table.core.windows.net"
+  #       ]
+  #     }
+  #   }
+  # }
+  #
   # site_config = {
   #   vnet_route_all_enabled        = true
   #   ip_restriction_default_action = "Deny"
