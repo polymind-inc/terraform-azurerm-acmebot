@@ -1,8 +1,17 @@
-provider "azurerm" {
-  features {}
-
-  skip_provider_registration = true
+mock_provider "azapi" {
+  mock_data "azapi_client_config" {
+    defaults = {
+      subscription_id = "00000000-0000-0000-0000-000000000000"
+      tenant_id       = "00000000-0000-0000-0000-000000000000"
+      object_id       = "00000000-0000-0000-0000-000000000000"
+      client_id       = "00000000-0000-0000-0000-000000000000"
+    }
+  }
 }
+mock_provider "azurerm" {}
+mock_provider "random" {}
+mock_provider "time" {}
+mock_provider "modtm" {}
 
 variables {
   name                = "func-acmebot-test"
