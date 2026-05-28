@@ -26,6 +26,10 @@ variables {
   }
 }
 
+run "default_inputs_plan_successfully" {
+  command = plan
+}
+
 run "name_must_be_within_length" {
   command = plan
 

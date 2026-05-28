@@ -66,10 +66,11 @@ module "acmebot" {
     enabled = true
     active_directory = {
       client_id            = azuread_application.default.client_id
-      client_secret        = azuread_application_password.default.value
       tenant_auth_endpoint = "https://sts.windows.net/${data.azurerm_client_config.current.tenant_id}/v2.0"
     }
   }
+
+  auth_settings_client_secret = azuread_application_password.default.value
 
   virtual_network_subnet_id = "/subscriptions/xxxx/resourceGroups/rg-network/providers/Microsoft.Network/virtualNetworks/vnet-acmebot/subnets/snet-acmebot"
 
@@ -139,51 +140,34 @@ module "acmebot" {
 
 The following requirements are needed by this module:
 
-- <a name="requirement_terraform"></a> [terraform](#requirement\_terraform) (>= 1.9.0, < 2.0.0)
+- <a name="requirement_terraform"></a> [terraform](#requirement\_terraform) (>= 1.10.0, < 2.0.0)
 
-- <a name="requirement_azapi"></a> [azapi](#requirement\_azapi) (>= 2.0.0, < 3.0.0)
+- <a name="requirement_azapi"></a> [azapi](#requirement\_azapi) (>= 2.9.0, < 3.0.0)
 
-- <a name="requirement_azurerm"></a> [azurerm](#requirement\_azurerm) (>= 4.0.0, < 5.0.0)
+- <a name="requirement_azurerm"></a> [azurerm](#requirement\_azurerm) (>= 4.36.0, < 5.0.0)
 
-- <a name="requirement_random"></a> [random](#requirement\_random) (>= 3.0.0, < 4.0.0)
+- <a name="requirement_modtm"></a> [modtm](#requirement\_modtm) (~> 0.3)
+
+- <a name="requirement_random"></a> [random](#requirement\_random) (>= 3.5.0, < 4.0.0)
+
+- <a name="requirement_time"></a> [time](#requirement\_time) (>= 0.9.0, < 1.0.0)
 
 ## Providers
 
 The following providers are used by this module:
 
-- <a name="provider_azapi"></a> [azapi](#provider\_azapi) (>= 2.0.0, < 3.0.0)
+- <a name="provider_azapi"></a> [azapi](#provider\_azapi) (>= 2.9.0, < 3.0.0)
 
-- <a name="provider_azurerm"></a> [azurerm](#provider\_azurerm) (>= 4.0.0, < 5.0.0)
-
-- <a name="provider_random"></a> [random](#provider\_random) (>= 3.0.0, < 4.0.0)
+- <a name="provider_random"></a> [random](#provider\_random) (>= 3.5.0, < 4.0.0)
 
 ## Resources
 
 The following resources are used by this module:
 
 - [azapi_resource.deployment](https://registry.terraform.io/providers/Azure/azapi/latest/docs/resources/resource) (resource)
-- [azurerm_application_insights.insights](https://registry.terraform.io/providers/hashicorp/azurerm/latest/docs/resources/application_insights) (resource)
-- [azurerm_function_app_flex_consumption.this](https://registry.terraform.io/providers/hashicorp/azurerm/latest/docs/resources/function_app_flex_consumption) (resource)
-- [azurerm_log_analytics_workspace.workspace](https://registry.terraform.io/providers/hashicorp/azurerm/latest/docs/resources/log_analytics_workspace) (resource)
-- [azurerm_management_lock.function_app](https://registry.terraform.io/providers/hashicorp/azurerm/latest/docs/resources/management_lock) (resource)
-- [azurerm_management_lock.private_endpoint](https://registry.terraform.io/providers/hashicorp/azurerm/latest/docs/resources/management_lock) (resource)
-- [azurerm_management_lock.storage_account_private_endpoint](https://registry.terraform.io/providers/hashicorp/azurerm/latest/docs/resources/management_lock) (resource)
-- [azurerm_monitor_diagnostic_setting.function_app](https://registry.terraform.io/providers/hashicorp/azurerm/latest/docs/resources/monitor_diagnostic_setting) (resource)
-- [azurerm_private_endpoint.function_app](https://registry.terraform.io/providers/hashicorp/azurerm/latest/docs/resources/private_endpoint) (resource)
-- [azurerm_private_endpoint.function_app_unmanaged_dns_zone_groups](https://registry.terraform.io/providers/hashicorp/azurerm/latest/docs/resources/private_endpoint) (resource)
-- [azurerm_private_endpoint.storage](https://registry.terraform.io/providers/hashicorp/azurerm/latest/docs/resources/private_endpoint) (resource)
-- [azurerm_private_endpoint.storage_unmanaged_dns_zone_groups](https://registry.terraform.io/providers/hashicorp/azurerm/latest/docs/resources/private_endpoint) (resource)
-- [azurerm_private_endpoint_application_security_group_association.function_app](https://registry.terraform.io/providers/hashicorp/azurerm/latest/docs/resources/private_endpoint_application_security_group_association) (resource)
-- [azurerm_private_endpoint_application_security_group_association.storage_account](https://registry.terraform.io/providers/hashicorp/azurerm/latest/docs/resources/private_endpoint_application_security_group_association) (resource)
-- [azurerm_role_assignment.function_app](https://registry.terraform.io/providers/hashicorp/azurerm/latest/docs/resources/role_assignment) (resource)
-- [azurerm_role_assignment.private_endpoint](https://registry.terraform.io/providers/hashicorp/azurerm/latest/docs/resources/role_assignment) (resource)
-- [azurerm_role_assignment.storage_account_private_endpoint](https://registry.terraform.io/providers/hashicorp/azurerm/latest/docs/resources/role_assignment) (resource)
-- [azurerm_service_plan.serverfarm](https://registry.terraform.io/providers/hashicorp/azurerm/latest/docs/resources/service_plan) (resource)
-- [azurerm_storage_account.storage](https://registry.terraform.io/providers/hashicorp/azurerm/latest/docs/resources/storage_account) (resource)
-- [azurerm_storage_container.deployment](https://registry.terraform.io/providers/hashicorp/azurerm/latest/docs/resources/storage_container) (resource)
 - [random_string.deployment_container_suffix](https://registry.terraform.io/providers/hashicorp/random/latest/docs/resources/string) (resource)
-- [azurerm_client_config.current](https://registry.terraform.io/providers/hashicorp/azurerm/latest/docs/data-sources/client_config) (data source)
-- [azurerm_function_app_host_keys.this](https://registry.terraform.io/providers/hashicorp/azurerm/latest/docs/data-sources/function_app_host_keys) (data source)
+- [azapi_client_config.current](https://registry.terraform.io/providers/Azure/azapi/latest/docs/data-sources/client_config) (data source)
+- [azapi_resource_action.function_host_keys](https://registry.terraform.io/providers/Azure/azapi/latest/docs/data-sources/resource_action) (data source)
 
 <!-- markdownlint-disable MD013 -->
 ## Required Inputs
@@ -317,11 +301,10 @@ Default: `{}`
 
 ### <a name="input_auth_settings"></a> [auth\_settings](#input\_auth\_settings)
 
-Description: Controls App Service Authentication for the Function App.
+Description: Controls App Service Authentication for the Function App. The client secret is supplied separately via `var.auth_settings_client_secret`.
 
 - `enabled` - (Required) Whether App Service Authentication is enabled.
 - `active_directory.client_id` - (Required) The Microsoft Entra application client ID.
-- `active_directory.client_secret` - (Required) The Microsoft Entra application client secret. This value is stored in Terraform state.
 - `active_directory.tenant_auth_endpoint` - (Required) The tenant-specific Microsoft Entra authorization endpoint.
 
 Type:
@@ -331,11 +314,18 @@ object({
     enabled = bool
     active_directory = object({
       client_id            = string
-      client_secret        = string
       tenant_auth_endpoint = string
     })
   })
 ```
+
+Default: `null`
+
+### <a name="input_auth_settings_client_secret"></a> [auth\_settings\_client\_secret](#input\_auth\_settings\_client\_secret)
+
+Description: The Microsoft Entra application client secret used by App Service Authentication. Required when `var.auth_settings` is set. The value is wired to the Function App as the `MICROSOFT_PROVIDER_AUTHENTICATION_SECRET` app setting and stored in Terraform state.
+
+Type: `string`
 
 Default: `null`
 
@@ -388,6 +378,14 @@ map(object({
 ```
 
 Default: `{}`
+
+### <a name="input_enable_telemetry"></a> [enable\_telemetry](#input\_enable\_telemetry)
+
+Description: Whether to enable AVM telemetry on the underlying Azure Verified Modules consumed by this module. When `true`, the value is forwarded to every AVM child module's `enable_telemetry` input. Defaults to `false` because this module is a community pattern and is not an official Azure Verified Module; consumers must opt in explicitly to send telemetry through the AVM `modtm` provider.
+
+Type: `bool`
+
+Default: `false`
 
 ### <a name="input_export_api_key"></a> [export\_api\_key](#input\_export\_api\_key)
 
@@ -483,8 +481,7 @@ Description: A map of private endpoints to create for the Function App. The map 
 - `network_interface_name` - (Optional) The private endpoint network interface name.
 - `location` - (Optional) The private endpoint location. Defaults to `var.location`.
 - `resource_group_name` - (Optional) The private endpoint resource group name. Defaults to `var.resource_group_name`.
-- `inherit_lock` - (Optional) Whether this private endpoint inherits `var.lock` when no endpoint-specific lock is set. Defaults to `true`.
-- `lock` - (Optional) The lock to apply to this private endpoint.
+- `lock` - (Optional) The lock to apply to this private endpoint. When unset, `var.lock` is inherited.
 - `tags` - (Optional) Tags to apply to this private endpoint. When unset, `var.tags` is inherited.
 - `ip_configurations` - (Optional) A map of static IP configurations for the private endpoint.
 - `role_assignments` - (Optional) A map of role assignments to create on this private endpoint.
@@ -503,7 +500,6 @@ map(object({
     network_interface_name                  = optional(string, null)
     location                                = optional(string, null)
     resource_group_name                     = optional(string, null)
-    inherit_lock                            = optional(bool, true)
     lock = optional(object({
       kind = string
       name = optional(string, null)
@@ -512,7 +508,6 @@ map(object({
     ip_configurations = optional(map(object({
       name               = string
       private_ip_address = string
-      member_name        = optional(string, null)
     })), {})
     role_assignments = optional(map(object({
       role_definition_id_or_name             = string
@@ -663,8 +658,7 @@ Description: Controls the Storage Account used by the Function App deployment pa
 - `private_endpoints.network_interface_name` - (Optional) The private endpoint network interface name.
 - `private_endpoints.location` - (Optional) The private endpoint location. Defaults to `var.location`.
 - `private_endpoints.resource_group_name` - (Optional) The private endpoint resource group name. Defaults to `var.resource_group_name`.
-- `private_endpoints.inherit_lock` - (Optional) Whether this private endpoint inherits `var.lock` when no endpoint-specific lock is set. Defaults to `true`.
-- `private_endpoints.lock` - (Optional) The lock to apply to this private endpoint.
+- `private_endpoints.lock` - (Optional) The lock to apply to this private endpoint. When unset, `var.lock` is inherited.
 - `private_endpoints.tags` - (Optional) Tags to apply to the private endpoint. When unset, `var.tags` is inherited.
 - `private_endpoints.ip_configurations` - (Optional) A map of static IP configurations for the private endpoint.
 - `private_endpoints.role_assignments` - (Optional) A map of role assignments to create on this private endpoint.
@@ -688,7 +682,6 @@ object({
       network_interface_name                  = optional(string, null)
       location                                = optional(string, null)
       resource_group_name                     = optional(string, null)
-      inherit_lock                            = optional(bool, true)
       lock = optional(object({
         kind = string
         name = optional(string, null)
@@ -697,7 +690,6 @@ object({
       ip_configurations = optional(map(object({
         name               = string
         private_ip_address = string
-        member_name        = optional(string, null)
       })), {})
       role_assignments = optional(map(object({
         role_definition_id_or_name             = string
@@ -743,17 +735,9 @@ Description: Created Default Functions API Key. Null unless export\_api\_key is 
 
 Description: The name of the Function App.
 
-### <a name="output_private_endpoint_names"></a> [private\_endpoint\_names](#output\_private\_endpoint\_names)
-
-Description: The names of the private endpoints.
-
-### <a name="output_private_endpoint_resource_ids"></a> [private\_endpoint\_resource\_ids](#output\_private\_endpoint\_resource\_ids)
-
-Description: The resource IDs of the private endpoints.
-
 ### <a name="output_private_endpoints"></a> [private\_endpoints](#output\_private\_endpoints)
 
-Description: A map of the private endpoints created.
+Description: A map of the Function App private endpoints created.
 
 ### <a name="output_resource"></a> [resource](#output\_resource)
 
@@ -763,14 +747,6 @@ Description: The Function App resource.
 
 Description: The resource ID of the Function App.
 
-### <a name="output_storage_account_private_endpoint_names"></a> [storage\_account\_private\_endpoint\_names](#output\_storage\_account\_private\_endpoint\_names)
-
-Description: The names of the Storage Account private endpoints.
-
-### <a name="output_storage_account_private_endpoint_resource_ids"></a> [storage\_account\_private\_endpoint\_resource\_ids](#output\_storage\_account\_private\_endpoint\_resource\_ids)
-
-Description: The resource IDs of the Storage Account private endpoints.
-
 ### <a name="output_storage_account_private_endpoints"></a> [storage\_account\_private\_endpoints](#output\_storage\_account\_private\_endpoints)
 
 Description: A map of the Storage Account private endpoints created.
@@ -779,13 +755,39 @@ Description: A map of the Storage Account private endpoints created.
 
 Description: The principal ID of the system-assigned managed identity.
 
-### <a name="output_system_assigned_mi_tenant_id"></a> [system\_assigned\_mi\_tenant\_id](#output\_system\_assigned\_mi\_tenant\_id)
-
-Description: The tenant ID of the system-assigned managed identity.
-
 ## Modules
 
-No modules.
+The following Modules are called:
+
+### <a name="module_insights"></a> [insights](#module\_insights)
+
+Source: Azure/avm-res-insights-component/azurerm
+
+Version: ~> 0.4
+
+### <a name="module_serverfarm"></a> [serverfarm](#module\_serverfarm)
+
+Source: Azure/avm-res-web-serverfarm/azurerm
+
+Version: ~> 2.0
+
+### <a name="module_storage"></a> [storage](#module\_storage)
+
+Source: Azure/avm-res-storage-storageaccount/azurerm
+
+Version: ~> 0.7
+
+### <a name="module_this"></a> [this](#module\_this)
+
+Source: Azure/avm-res-web-site/azurerm
+
+Version: ~> 0.22
+
+### <a name="module_workspace"></a> [workspace](#module\_workspace)
+
+Source: Azure/avm-res-operationalinsights-workspace/azurerm
+
+Version: ~> 0.5
 
 ## License
 

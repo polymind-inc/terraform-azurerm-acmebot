@@ -242,12 +242,14 @@ module "acmebot" {
     enabled = true
     active_directory = {
       client_id            = azuread_application.default.client_id
-      client_secret        = azuread_application_password.default.value
       tenant_auth_endpoint = "https://login.microsoftonline.com/${data.azuread_client_config.current.tenant_id}/v2.0"
     }
   }
+
+  auth_settings_client_secret = azuread_application_password.default.value
 }
 
 output "system_assigned_mi_principal_id" {
-  value = module.acmebot.system_assigned_mi_principal_id
+  value     = module.acmebot.system_assigned_mi_principal_id
+  sensitive = true
 }
