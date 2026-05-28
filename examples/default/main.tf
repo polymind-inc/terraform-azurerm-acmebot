@@ -160,7 +160,7 @@ module "acmebot" {
 
   acmebot = {
     version      = "5.0.1"
-    mail_address = "YOUR-EMAIL-ADDRESS"
+    mail_address = "admin@example.com"
     vault_uri    = azurerm_key_vault.default.vault_uri
 
     dns_providers = {
