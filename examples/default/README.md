@@ -7,7 +7,7 @@ Deploys Acmebot on Azure Functions Flex Consumption with:
 - Azure DNS as the ACME challenge provider.
 - A Key Vault target for issued certificates.
 
-This example disables `enterprise_level_defaults_enabled` so the quickstart remains publicly reachable with minimal networking. For production or enterprise deployments, keep the module default and configure VNET integration plus Function App and Storage Account Private Endpoints.
+This example explicitly keeps the quickstart publicly reachable with minimal networking. The module defaults to a private posture, so public network access and permissive IP restriction defaults are set here for a low-friction sample. For private deployments, remove those public overrides and configure VNET integration plus Function App and Storage Account Private Endpoints.
 
 Before applying, replace `YOUR-EMAIL-ADDRESS` in [main.tf](main.tf) with the email address used for the ACME account.
 

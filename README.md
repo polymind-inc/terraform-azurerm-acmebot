@@ -16,9 +16,6 @@ module "acmebot" {
   tags = {
     workload = "acmebot"
   }
-
-  enterprise_level_defaults_enabled = true
-
   acmebot = {
     version      = "5.0.1"
     mail_address = "YOUR-EMAIL-ADDRESS"
@@ -142,7 +139,7 @@ module "acmebot" {
 
 ### Networking
 
-- `enterprise_level_defaults_enabled` is enabled by default to disable public network access when unset, make SCM follow main IP restrictions, and enable route-all when VNET integration is configured.
+- The module defaults to a private networking posture: Function App and Storage Account public network access are disabled when unset, SCM follows main IP restrictions, and route-all is enabled when VNET integration is configured.
 - Storage data-plane endpoints for `AzureWebJobsStorage` and Flex Consumption package deployment storage are read from the deployed Storage Account so Azure public, China, and US Government endpoint suffixes are honored without hard-coding them. `acmebot.environment` defaults to `AzureCloud`; set it explicitly for sovereign cloud deployments.
 - VNET integration uses the AVM App Service naming pattern `virtual_network_subnet_id`, and outbound route-all is configured with `site_config.vnet_route_all_enabled`.
 - When `virtual_network_subnet_id` is set, `storage_account.private_endpoints` is required so Azure Functions can access its Storage Account through Private Endpoint. When Storage public access is disabled, `blob`, `queue`, and `table` private endpoints are required. The Flex Consumption VNET integration subnet cannot be shared with Private Endpoints, so provide a separate subnet.
@@ -448,14 +445,6 @@ Type: `bool`
 
 Default: `false`
 
-### <a name="input_enterprise_level_defaults_enabled"></a> [enterprise\_level\_defaults\_enabled](#input\_enterprise\_level\_defaults\_enabled)
-
-Description: Whether to use stricter enterprise-oriented defaults when an input is unset. When enabled, Function App and Storage public network access default to disabled, SCM follows main site IP restrictions by default, and VNET route-all defaults to enabled when VNET integration is configured. Defaults to true for enterprise deployments.
-
-Type: `bool`
-
-Default: `true`
-
 ### <a name="input_export_api_key"></a> [export\_api\_key](#input\_export\_api\_key)
 
 Description: Whether to read and export the default function host key as output.
@@ -619,7 +608,7 @@ Default: `true`
 
 ### <a name="input_public_network_access_enabled"></a> [public\_network\_access\_enabled](#input\_public\_network\_access\_enabled)
 
-Description: Whether public network access is enabled for the Function App. Defaults to `true`, or `false` when `enterprise_level_defaults_enabled` is true.
+Description: Whether public network access is enabled for the Function App. Defaults to `false`.
 
 Type: `bool`
 
@@ -677,12 +666,12 @@ Default: `{}`
 
 Description: App Service site configuration values exposed by this module. The networking and IP restriction fields follow the AVM App Service interface shape.
 
-- `ip_restriction_default_action` - (Optional) The default action for main site IP restrictions. Possible values are `Allow` and `Deny`. Defaults to `Allow`, or `Deny` when `enterprise_level_defaults_enabled` is true.
+- `ip_restriction_default_action` - (Optional) The default action for main site IP restrictions. Possible values are `Allow` and `Deny`. Defaults to `Deny`.
 - `ip_restriction` - (Optional) A list of main site IP restriction rules.
-- `scm_ip_restriction_default_action` - (Optional) The default action for SCM site IP restrictions. Possible values are `Allow` and `Deny`. Defaults to `Allow`, or `Deny` when `enterprise_level_defaults_enabled` is true.
+- `scm_ip_restriction_default_action` - (Optional) The default action for SCM site IP restrictions. Possible values are `Allow` and `Deny`. Defaults to `Deny`.
 - `scm_ip_restriction` - (Optional) A list of SCM site IP restriction rules.
-- `scm_use_main_ip_restriction` - (Optional) Whether SCM uses the main site IP restrictions. Defaults to `false`, or `true` when `enterprise_level_defaults_enabled` is true.
-- `vnet_route_all_enabled` - (Optional) Whether all outbound traffic is routed through the integrated virtual network. Defaults to `false`, or `true` when `enterprise_level_defaults_enabled` is true and `virtual_network_subnet_id` is set.
+- `scm_use_main_ip_restriction` - (Optional) Whether SCM uses the main site IP restrictions. Defaults to `true`.
+- `vnet_route_all_enabled` - (Optional) Whether all outbound traffic is routed through the integrated virtual network. Defaults to `true` when `virtual_network_subnet_id` is set, otherwise `false`.
 
 Type:
 
@@ -733,7 +722,7 @@ Description: Controls the Storage Account used by the Function App deployment pa
 - `account_replication_type` - (Optional) The replication type for the Storage Account. Possible values are `LRS`, `GRS`, `RAGRS`, `ZRS`, `GZRS`, and `RAGZRS`. Defaults to `LRS`.
 - `default_to_oauth_authentication` - (Optional) Whether Azure portal data-plane access defaults to Microsoft Entra authorization. Defaults to `true`.
 - `infrastructure_encryption_enabled` - (Optional) Whether infrastructure encryption is enabled. Defaults to `true`.
-- `public_network_access_enabled` - (Optional) Whether public network access is enabled for the Storage Account. Defaults to `true`, or `false` when `enterprise_level_defaults_enabled` is true. Set it to `false` with `virtual_network_subnet_id` and `blob`/`queue`/`table` private endpoints for private enterprise deployments.
+- `public_network_access_enabled` - (Optional) Whether public network access is enabled for the Storage Account. Defaults to `false`. Set it to `true` for public deployments, or configure `virtual_network_subnet_id` with `blob`/`queue`/`table` private endpoints for private deployments.
 - `shared_access_key_enabled` - (Optional) Whether Shared Key authorization is enabled. Defaults to `false`; `AzureWebJobsStorage` uses managed identity.
 - `blob_properties` - (Optional) Blob service properties. Defaults enable blob versioning, change feed, blob soft delete, and container soft delete with 30-day retention.
 - `network_rules` - (Optional) Storage firewall rules. Defaults to `null` to leave public-network reachability controlled by `public_network_access_enabled`; set an object to configure selected networks.

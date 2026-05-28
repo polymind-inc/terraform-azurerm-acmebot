@@ -131,7 +131,7 @@ run "parent_id_must_be_resource_group_id" {
   expect_failures = [var.parent_id]
 }
 
-run "enterprise_defaults_require_function_private_endpoint" {
+run "private_defaults_require_function_private_endpoint" {
   command = plan
 
   variables {
@@ -314,11 +314,11 @@ run "storage_account_name_must_be_lowercase_alphanumeric" {
   command = plan
 
   variables {
-    enterprise_level_defaults_enabled = false
-    virtual_network_subnet_id         = null
+    virtual_network_subnet_id = null
 
     storage_account = {
-      name = "BAD-NAME"
+      name                          = "BAD-NAME"
+      public_network_access_enabled = true
     }
   }
 
@@ -329,11 +329,11 @@ run "storage_account_replication_type_must_be_allowed_value" {
   command = plan
 
   variables {
-    enterprise_level_defaults_enabled = false
-    virtual_network_subnet_id         = null
+    virtual_network_subnet_id = null
 
     storage_account = {
-      account_replication_type = "INVALID"
+      public_network_access_enabled = true
+      account_replication_type      = "INVALID"
     }
   }
 
@@ -640,10 +640,10 @@ run "storage_network_rules_default_action_must_be_allowed_value" {
   command = plan
 
   variables {
-    enterprise_level_defaults_enabled = false
-    virtual_network_subnet_id         = null
+    virtual_network_subnet_id = null
 
     storage_account = {
+      public_network_access_enabled = true
       network_rules = {
         default_action = "Audit"
       }
@@ -657,10 +657,10 @@ run "storage_blob_delete_retention_days_must_be_in_range" {
   command = plan
 
   variables {
-    enterprise_level_defaults_enabled = false
-    virtual_network_subnet_id         = null
+    virtual_network_subnet_id = null
 
     storage_account = {
+      public_network_access_enabled = true
       blob_properties = {
         delete_retention_policy = {
           enabled = true

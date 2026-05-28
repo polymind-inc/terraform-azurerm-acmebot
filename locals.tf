@@ -8,13 +8,13 @@ locals {
   resource_group_name      = local.resource_group.name
   subscription_resource_id = "/subscriptions/${local.subscription_id}"
 
-  function_public_network_access_enabled = coalesce(var.public_network_access_enabled, var.enterprise_level_defaults_enabled ? false : true)
-  storage_public_network_access_enabled  = coalesce(var.storage_account.public_network_access_enabled, var.enterprise_level_defaults_enabled ? false : true)
+  function_public_network_access_enabled = coalesce(var.public_network_access_enabled, false)
+  storage_public_network_access_enabled  = coalesce(var.storage_account.public_network_access_enabled, false)
 
-  site_config_ip_restriction_default_action     = coalesce(var.site_config.ip_restriction_default_action, var.enterprise_level_defaults_enabled ? "Deny" : "Allow")
-  site_config_scm_ip_restriction_default_action = coalesce(var.site_config.scm_ip_restriction_default_action, var.enterprise_level_defaults_enabled ? "Deny" : "Allow")
-  site_config_scm_use_main_ip_restriction       = coalesce(var.site_config.scm_use_main_ip_restriction, var.enterprise_level_defaults_enabled ? true : false)
-  site_config_vnet_route_all_enabled            = coalesce(var.site_config.vnet_route_all_enabled, var.enterprise_level_defaults_enabled && var.virtual_network_subnet_id != null ? true : false)
+  site_config_ip_restriction_default_action     = coalesce(var.site_config.ip_restriction_default_action, "Deny")
+  site_config_scm_ip_restriction_default_action = coalesce(var.site_config.scm_ip_restriction_default_action, "Deny")
+  site_config_scm_use_main_ip_restriction       = coalesce(var.site_config.scm_use_main_ip_restriction, true)
+  site_config_vnet_route_all_enabled            = coalesce(var.site_config.vnet_route_all_enabled, var.virtual_network_subnet_id != null)
 
   storage_uses_user_assigned_identity = var.storage_managed_identity.user_assigned_resource_id != null
   storage_authentication_type         = local.storage_uses_user_assigned_identity ? "UserAssignedIdentity" : "SystemAssignedIdentity"

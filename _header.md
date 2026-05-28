@@ -15,9 +15,6 @@ module "acmebot" {
   tags = {
     workload = "acmebot"
   }
-
-  enterprise_level_defaults_enabled = true
-
   acmebot = {
     version      = "5.0.1"
     mail_address = "YOUR-EMAIL-ADDRESS"
@@ -141,7 +138,7 @@ module "acmebot" {
 
 ### Networking
 
-- `enterprise_level_defaults_enabled` is enabled by default to disable public network access when unset, make SCM follow main IP restrictions, and enable route-all when VNET integration is configured.
+- The module defaults to a private networking posture: Function App and Storage Account public network access are disabled when unset, SCM follows main IP restrictions, and route-all is enabled when VNET integration is configured.
 - Storage data-plane endpoints for `AzureWebJobsStorage` and Flex Consumption package deployment storage are read from the deployed Storage Account so Azure public, China, and US Government endpoint suffixes are honored without hard-coding them. `acmebot.environment` defaults to `AzureCloud`; set it explicitly for sovereign cloud deployments.
 - VNET integration uses the AVM App Service naming pattern `virtual_network_subnet_id`, and outbound route-all is configured with `site_config.vnet_route_all_enabled`.
 - When `virtual_network_subnet_id` is set, `storage_account.private_endpoints` is required so Azure Functions can access its Storage Account through Private Endpoint. When Storage public access is disabled, `blob`, `queue`, and `table` private endpoints are required. The Flex Consumption VNET integration subnet cannot be shared with Private Endpoints, so provide a separate subnet.

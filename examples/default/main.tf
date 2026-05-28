@@ -148,14 +148,12 @@ resource "azurerm_role_assignment" "default" {
 module "acmebot" {
   source = "../../"
 
-  name                   = "func-acmebot-${random_string.random.result}"
-  parent_id              = azurerm_resource_group.default.id
-  location               = azurerm_resource_group.default.location
-  maximum_instance_count = 50
-  instance_memory_in_mb  = 2048
-  # This example keeps the quickstart publicly reachable. Production enterprise
-  # deployments should keep the default enterprise-level private networking posture.
-  enterprise_level_defaults_enabled = false
+  name                          = "func-acmebot-${random_string.random.result}"
+  parent_id                     = azurerm_resource_group.default.id
+  location                      = azurerm_resource_group.default.location
+  maximum_instance_count        = 50
+  instance_memory_in_mb         = 2048
+  public_network_access_enabled = true
   tags = {
     workload = "acmebot"
   }
@@ -174,6 +172,16 @@ module "acmebot" {
 
   managed_identities = {
     system_assigned = true
+  }
+
+  storage_account = {
+    public_network_access_enabled = true
+  }
+
+  site_config = {
+    ip_restriction_default_action     = "Allow"
+    scm_ip_restriction_default_action = "Allow"
+    scm_use_main_ip_restriction       = false
   }
 
   # To use a user-assigned managed identity for Acmebot and AzureWebJobsStorage,

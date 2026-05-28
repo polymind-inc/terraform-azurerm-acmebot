@@ -70,13 +70,6 @@ variable "auth_settings_client_secret" {
   }
 }
 
-variable "enterprise_level_defaults_enabled" {
-  type        = bool
-  description = "Whether to use stricter enterprise-oriented defaults when an input is unset. When enabled, Function App and Storage public network access default to disabled, SCM follows main site IP restrictions by default, and VNET route-all defaults to enabled when VNET integration is configured. Defaults to true for enterprise deployments."
-  default     = true
-  nullable    = false
-}
-
 variable "diagnostic_settings" {
   type = map(object({
     name                                     = optional(string, null)
@@ -306,12 +299,12 @@ variable "site_config" {
   description = <<DESCRIPTION
 App Service site configuration values exposed by this module. The networking and IP restriction fields follow the AVM App Service interface shape.
 
-- `ip_restriction_default_action` - (Optional) The default action for main site IP restrictions. Possible values are `Allow` and `Deny`. Defaults to `Allow`, or `Deny` when `enterprise_level_defaults_enabled` is true.
+- `ip_restriction_default_action` - (Optional) The default action for main site IP restrictions. Possible values are `Allow` and `Deny`. Defaults to `Deny`.
 - `ip_restriction` - (Optional) A list of main site IP restriction rules.
-- `scm_ip_restriction_default_action` - (Optional) The default action for SCM site IP restrictions. Possible values are `Allow` and `Deny`. Defaults to `Allow`, or `Deny` when `enterprise_level_defaults_enabled` is true.
+- `scm_ip_restriction_default_action` - (Optional) The default action for SCM site IP restrictions. Possible values are `Allow` and `Deny`. Defaults to `Deny`.
 - `scm_ip_restriction` - (Optional) A list of SCM site IP restriction rules.
-- `scm_use_main_ip_restriction` - (Optional) Whether SCM uses the main site IP restrictions. Defaults to `false`, or `true` when `enterprise_level_defaults_enabled` is true.
-- `vnet_route_all_enabled` - (Optional) Whether all outbound traffic is routed through the integrated virtual network. Defaults to `false`, or `true` when `enterprise_level_defaults_enabled` is true and `virtual_network_subnet_id` is set.
+- `scm_use_main_ip_restriction` - (Optional) Whether SCM uses the main site IP restrictions. Defaults to `true`.
+- `vnet_route_all_enabled` - (Optional) Whether all outbound traffic is routed through the integrated virtual network. Defaults to `true` when `virtual_network_subnet_id` is set, otherwise `false`.
 DESCRIPTION
   default     = {}
   nullable    = false
@@ -555,7 +548,7 @@ Controls the Storage Account used by the Function App deployment package.
 - `account_replication_type` - (Optional) The replication type for the Storage Account. Possible values are `LRS`, `GRS`, `RAGRS`, `ZRS`, `GZRS`, and `RAGZRS`. Defaults to `LRS`.
 - `default_to_oauth_authentication` - (Optional) Whether Azure portal data-plane access defaults to Microsoft Entra authorization. Defaults to `true`.
 - `infrastructure_encryption_enabled` - (Optional) Whether infrastructure encryption is enabled. Defaults to `true`.
-- `public_network_access_enabled` - (Optional) Whether public network access is enabled for the Storage Account. Defaults to `true`, or `false` when `enterprise_level_defaults_enabled` is true. Set it to `false` with `virtual_network_subnet_id` and `blob`/`queue`/`table` private endpoints for private enterprise deployments.
+- `public_network_access_enabled` - (Optional) Whether public network access is enabled for the Storage Account. Defaults to `false`. Set it to `true` for public deployments, or configure `virtual_network_subnet_id` with `blob`/`queue`/`table` private endpoints for private deployments.
 - `shared_access_key_enabled` - (Optional) Whether Shared Key authorization is enabled. Defaults to `false`; `AzureWebJobsStorage` uses managed identity.
 - `blob_properties` - (Optional) Blob service properties. Defaults enable blob versioning, change feed, blob soft delete, and container soft delete with 30-day retention.
 - `network_rules` - (Optional) Storage firewall rules. Defaults to `null` to leave public-network reachability controlled by `public_network_access_enabled`; set an object to configure selected networks.
@@ -642,10 +635,10 @@ DESCRIPTION
   }
 
   validation {
-    condition = (var.storage_account.public_network_access_enabled == false || (var.storage_account.public_network_access_enabled == null && var.enterprise_level_defaults_enabled)) ? alltrue([
+    condition = var.storage_account.public_network_access_enabled != true ? alltrue([
       for subresource_name in ["blob", "queue", "table"] : contains([for private_endpoint in values(var.storage_account.private_endpoints) : private_endpoint.subresource_name], subresource_name)
     ]) : true
-    error_message = "storage_account.private_endpoints must include blob, queue, and table endpoints when storage_account.public_network_access_enabled is false or enterprise_level_defaults_enabled is true."
+    error_message = "storage_account.private_endpoints must include blob, queue, and table endpoints when storage_account.public_network_access_enabled is false or unset."
   }
 
   validation {
@@ -822,12 +815,12 @@ DESCRIPTION
 
 variable "public_network_access_enabled" {
   type        = bool
-  description = "Whether public network access is enabled for the Function App. Defaults to `true`, or `false` when `enterprise_level_defaults_enabled` is true."
+  description = "Whether public network access is enabled for the Function App. Defaults to `false`."
   default     = null
 
   validation {
-    condition     = (var.public_network_access_enabled == false || (var.public_network_access_enabled == null && var.enterprise_level_defaults_enabled)) ? length(var.private_endpoints) > 0 : true
-    error_message = "private_endpoints must be set when public_network_access_enabled is false or enterprise_level_defaults_enabled is true so the Function App has a private ingress path."
+    condition     = var.public_network_access_enabled != true ? length(var.private_endpoints) > 0 : true
+    error_message = "private_endpoints must be set when public_network_access_enabled is false or unset so the Function App has a private ingress path."
   }
 }
 
@@ -850,8 +843,8 @@ variable "virtual_network_subnet_id" {
   }
 
   validation {
-    condition     = (var.storage_account.public_network_access_enabled == false || (var.storage_account.public_network_access_enabled == null && var.enterprise_level_defaults_enabled)) ? var.virtual_network_subnet_id != null : true
-    error_message = "virtual_network_subnet_id must be set when storage_account.public_network_access_enabled is false or enterprise_level_defaults_enabled is true so the Function App can reach Storage through Private Endpoint."
+    condition     = var.storage_account.public_network_access_enabled != true ? var.virtual_network_subnet_id != null : true
+    error_message = "virtual_network_subnet_id must be set when storage_account.public_network_access_enabled is false or unset so the Function App can reach Storage through Private Endpoint."
   }
 
   validation {
