@@ -22,21 +22,22 @@ mock_provider "azapi" {
     defaults = {
       output = {
         properties = {
-          clientId    = "11111111-1111-1111-1111-111111111111"
-          principalId = "22222222-2222-2222-2222-222222222222"
+          clientId           = "11111111-1111-1111-1111-111111111111"
+          principalId        = "22222222-2222-2222-2222-222222222222"
+          ConnectionString   = "InstrumentationKey=33333333-3333-3333-3333-333333333333;IngestionEndpoint=https://eastus-0.in.applicationinsights.azure.com/"
+          InstrumentationKey = "33333333-3333-3333-3333-333333333333"
         }
       }
     }
   }
 }
 mock_provider "random" {}
-mock_provider "time" {}
 mock_provider "modtm" {}
 
 variables {
-  name                = "func-acmebot-test"
-  resource_group_name = "rg-acmebot-test"
-  location            = "eastus"
+  name      = "func-acmebot-test"
+  parent_id = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg-acmebot-test"
+  location  = "eastus"
 
   acmebot = {
     version      = "5.0.1"
@@ -53,10 +54,67 @@ variables {
   managed_identities = {
     system_assigned = true
   }
+
+  virtual_network_subnet_id = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg-network/providers/Microsoft.Network/virtualNetworks/vnet-acmebot/subnets/snet-acmebot"
+
+  storage_account = {
+    private_endpoints = {
+      blob = {
+        subnet_resource_id = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg-network/providers/Microsoft.Network/virtualNetworks/vnet-acmebot/subnets/snet-storage-private-endpoints"
+        subresource_name   = "blob"
+        private_dns_zone_resource_ids = [
+          "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg-network/providers/Microsoft.Network/privateDnsZones/privatelink.blob.core.windows.net"
+        ]
+      }
+      queue = {
+        subnet_resource_id = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg-network/providers/Microsoft.Network/virtualNetworks/vnet-acmebot/subnets/snet-storage-private-endpoints"
+        subresource_name   = "queue"
+        private_dns_zone_resource_ids = [
+          "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg-network/providers/Microsoft.Network/privateDnsZones/privatelink.queue.core.windows.net"
+        ]
+      }
+      table = {
+        subnet_resource_id = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg-network/providers/Microsoft.Network/virtualNetworks/vnet-acmebot/subnets/snet-storage-private-endpoints"
+        subresource_name   = "table"
+        private_dns_zone_resource_ids = [
+          "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg-network/providers/Microsoft.Network/privateDnsZones/privatelink.table.core.windows.net"
+        ]
+      }
+    }
+  }
+
+  private_endpoints = {
+    primary = {
+      subnet_resource_id = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg-network/providers/Microsoft.Network/virtualNetworks/vnet-acmebot/subnets/snet-private-endpoints"
+      private_dns_zone_resource_ids = [
+        "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg-network/providers/Microsoft.Network/privateDnsZones/privatelink.azurewebsites.net"
+      ]
+    }
+  }
 }
 
 run "default_inputs_plan_successfully" {
   command = plan
+}
+
+run "parent_id_must_be_resource_group_id" {
+  command = plan
+
+  variables {
+    parent_id = "/subscriptions/00000000-0000-0000-0000-000000000000/not-a-resource-group"
+  }
+
+  expect_failures = [var.parent_id]
+}
+
+run "enterprise_defaults_require_function_private_endpoint" {
+  command = plan
+
+  variables {
+    private_endpoints = {}
+  }
+
+  expect_failures = [var.public_network_access_enabled]
 }
 
 run "name_must_be_within_length" {
@@ -232,6 +290,9 @@ run "storage_account_name_must_be_lowercase_alphanumeric" {
   command = plan
 
   variables {
+    enterprise_level_defaults_enabled = false
+    virtual_network_subnet_id         = null
+
     storage_account = {
       name = "BAD-NAME"
     }
@@ -244,6 +305,9 @@ run "storage_account_replication_type_must_be_allowed_value" {
   command = plan
 
   variables {
+    enterprise_level_defaults_enabled = false
+    virtual_network_subnet_id         = null
+
     storage_account = {
       account_replication_type = "INVALID"
     }
@@ -282,6 +346,44 @@ run "log_analytics_workspace_retention_must_be_in_range" {
   }
 
   expect_failures = [var.log_analytics_workspace]
+}
+
+run "log_analytics_workspace_resource_id_must_be_workspace" {
+  command = plan
+
+  variables {
+    log_analytics_workspace = {
+      resource_id = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg-observability/providers/Microsoft.Insights/components/appi-acmebot"
+    }
+  }
+
+  expect_failures = [var.log_analytics_workspace]
+}
+
+run "application_insights_resource_id_must_be_component" {
+  command = plan
+
+  variables {
+    application_insights = {
+      resource_id = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg-observability/providers/Microsoft.OperationalInsights/workspaces/log-acmebot"
+    }
+  }
+
+  expect_failures = [var.application_insights]
+}
+
+run "existing_monitoring_resources_plan_successfully" {
+  command = plan
+
+  variables {
+    log_analytics_workspace = {
+      resource_id = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg-observability/providers/Microsoft.OperationalInsights/workspaces/log-acmebot"
+    }
+
+    application_insights = {
+      resource_id = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg-observability/providers/Microsoft.Insights/components/appi-acmebot"
+    }
+  }
 }
 
 run "lock_kind_must_be_allowed_value" {
@@ -458,12 +560,13 @@ run "function_app_private_endpoint_required_when_public_access_disabled" {
 
   variables {
     public_network_access_enabled = false
+    private_endpoints             = {}
   }
 
   expect_failures = [var.public_network_access_enabled]
 }
 
-run "storage_public_access_disabled_requires_blob_and_queue_private_endpoints" {
+run "storage_public_access_disabled_requires_blob_queue_and_table_private_endpoints" {
   command = plan
 
   variables {
@@ -485,6 +588,8 @@ run "storage_public_access_disabled_requires_virtual_network_integration" {
   command = plan
 
   variables {
+    virtual_network_subnet_id = null
+
     storage_account = {
       public_network_access_enabled = false
       private_endpoints = {
@@ -495,6 +600,10 @@ run "storage_public_access_disabled_requires_virtual_network_integration" {
         queue = {
           subnet_resource_id = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg-network/providers/Microsoft.Network/virtualNetworks/vnet-acmebot/subnets/snet-storage-private-endpoints"
           subresource_name   = "queue"
+        }
+        table = {
+          subnet_resource_id = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg-network/providers/Microsoft.Network/virtualNetworks/vnet-acmebot/subnets/snet-storage-private-endpoints"
+          subresource_name   = "table"
         }
       }
     }
@@ -507,6 +616,9 @@ run "storage_network_rules_default_action_must_be_allowed_value" {
   command = plan
 
   variables {
+    enterprise_level_defaults_enabled = false
+    virtual_network_subnet_id         = null
+
     storage_account = {
       network_rules = {
         default_action = "Audit"
@@ -521,6 +633,9 @@ run "storage_blob_delete_retention_days_must_be_in_range" {
   command = plan
 
   variables {
+    enterprise_level_defaults_enabled = false
+    virtual_network_subnet_id         = null
+
     storage_account = {
       blob_properties = {
         delete_retention_policy = {
@@ -538,11 +653,21 @@ run "storage_private_endpoint_requires_virtual_network_integration" {
   command = plan
 
   variables {
+    virtual_network_subnet_id = null
+
     storage_account = {
       private_endpoints = {
         blob = {
           subnet_resource_id = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg-network/providers/Microsoft.Network/virtualNetworks/vnet-acmebot/subnets/snet-storage-private-endpoints"
           subresource_name   = "blob"
+        }
+        queue = {
+          subnet_resource_id = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg-network/providers/Microsoft.Network/virtualNetworks/vnet-acmebot/subnets/snet-storage-private-endpoints"
+          subresource_name   = "queue"
+        }
+        table = {
+          subnet_resource_id = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg-network/providers/Microsoft.Network/virtualNetworks/vnet-acmebot/subnets/snet-storage-private-endpoints"
+          subresource_name   = "table"
         }
       }
     }
@@ -556,6 +681,10 @@ run "virtual_network_integration_requires_storage_private_endpoint" {
 
   variables {
     virtual_network_subnet_id = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg-network/providers/Microsoft.Network/virtualNetworks/vnet-acmebot/subnets/snet-acmebot"
+    storage_account = {
+      public_network_access_enabled = true
+      private_endpoints             = {}
+    }
   }
 
   expect_failures = [var.virtual_network_subnet_id]
@@ -567,6 +696,7 @@ run "storage_private_endpoint_subnet_must_differ_from_integration_subnet" {
   variables {
     virtual_network_subnet_id = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg-network/providers/Microsoft.Network/virtualNetworks/vnet-acmebot/subnets/snet-acmebot"
     storage_account = {
+      public_network_access_enabled = true
       private_endpoints = {
         blob = {
           subnet_resource_id = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg-network/providers/Microsoft.Network/virtualNetworks/vnet-acmebot/subnets/snet-acmebot"

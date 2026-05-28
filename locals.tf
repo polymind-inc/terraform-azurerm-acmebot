@@ -2,8 +2,19 @@ locals {
   function_app_name = var.name
   tags              = var.tags
 
-  resource_group_id        = "/subscriptions/${data.azapi_client_config.current.subscription_id}/resourceGroups/${var.resource_group_name}"
-  subscription_resource_id = "/subscriptions/${data.azapi_client_config.current.subscription_id}"
+  resource_group           = provider::azapi::parse_resource_id("Microsoft.Resources/resourceGroups", var.parent_id)
+  resource_group_id        = local.resource_group.id
+  subscription_id          = local.resource_group.subscription_id
+  resource_group_name      = local.resource_group.name
+  subscription_resource_id = "/subscriptions/${local.subscription_id}"
+
+  function_public_network_access_enabled = coalesce(var.public_network_access_enabled, var.enterprise_level_defaults_enabled ? false : true)
+  storage_public_network_access_enabled  = coalesce(var.storage_account.public_network_access_enabled, var.enterprise_level_defaults_enabled ? false : true)
+
+  site_config_ip_restriction_default_action     = coalesce(var.site_config.ip_restriction_default_action, var.enterprise_level_defaults_enabled ? "Deny" : "Allow")
+  site_config_scm_ip_restriction_default_action = coalesce(var.site_config.scm_ip_restriction_default_action, var.enterprise_level_defaults_enabled ? "Deny" : "Allow")
+  site_config_scm_use_main_ip_restriction       = coalesce(var.site_config.scm_use_main_ip_restriction, var.enterprise_level_defaults_enabled ? true : false)
+  site_config_vnet_route_all_enabled            = coalesce(var.site_config.vnet_route_all_enabled, var.enterprise_level_defaults_enabled && var.virtual_network_subnet_id != null ? true : false)
 
   storage_uses_user_assigned_identity = var.storage_managed_identity.user_assigned_resource_id != null
   storage_authentication_type         = local.storage_uses_user_assigned_identity ? "UserAssignedIdentity" : "SystemAssignedIdentity"
@@ -17,7 +28,7 @@ locals {
     format(
       "st%s%s",
       substr(replace(lower(var.name), "/[^a-z0-9]/", ""), 0, 16),
-      substr(md5("${data.azapi_client_config.current.subscription_id}/${var.resource_group_name}/${var.name}"), 0, 6),
+      substr(md5("${local.subscription_id}/${local.resource_group_name}/${var.name}"), 0, 6),
     )
   )
 
@@ -34,6 +45,15 @@ locals {
 
   acmebot_major_version = "v${split(".", var.acmebot.version)[0]}"
   acmebot_package_uri   = "https://stacmebotprod.blob.core.windows.net/acmebot/${local.acmebot_major_version}/${var.acmebot.version}.zip"
+
+  create_log_analytics_workspace = var.log_analytics_workspace.resource_id == null && (
+    var.application_insights.resource_id == null || var.managed_diagnostic_settings_enabled
+  )
+  log_analytics_workspace_resource_id = var.log_analytics_workspace.resource_id != null ? var.log_analytics_workspace.resource_id : (
+    local.create_log_analytics_workspace ? azapi_resource.log_analytics_workspace[0].id : null
+  )
+  application_insights_connection_string   = var.application_insights.resource_id != null ? data.azapi_resource.application_insights[0].output.properties.ConnectionString : azapi_resource.application_insights[0].output.properties.ConnectionString
+  application_insights_instrumentation_key = var.application_insights.resource_id != null ? data.azapi_resource.application_insights[0].output.properties.InstrumentationKey : azapi_resource.application_insights[0].output.properties.InstrumentationKey
 
   external_account_binding = var.acmebot.external_account_binding != null ? {
     "Acmebot__ExternalAccountBinding__KeyId"     = var.acmebot.external_account_binding.key_id
@@ -192,13 +212,13 @@ locals {
 
   function_app_diagnostic_settings = var.managed_diagnostic_settings_enabled && length(var.diagnostic_settings) == 0 ? {
     default = {
-      workspace_resource_id = azapi_resource.log_analytics_workspace.id
+      workspace_resource_id = local.log_analytics_workspace_resource_id
     }
   } : var.diagnostic_settings
 
   storage_account_diagnostic_settings = var.managed_diagnostic_settings_enabled ? {
     default = {
-      workspace_resource_id = azapi_resource.log_analytics_workspace.id
+      workspace_resource_id = local.log_analytics_workspace_resource_id
       metrics = [
         {
           category = "Transaction"
@@ -209,7 +229,7 @@ locals {
 
   storage_service_diagnostic_settings = var.managed_diagnostic_settings_enabled ? {
     default = {
-      workspace_resource_id = azapi_resource.log_analytics_workspace.id
+      workspace_resource_id = local.log_analytics_workspace_resource_id
       logs = [
         {
           category = "StorageRead"
@@ -257,5 +277,6 @@ locals {
     storage_account_contributor    = "${local.subscription_resource_id}/providers/Microsoft.Authorization/roleDefinitions/17d1049b-9a84-46fb-8f53-869881c3d3ab"
     storage_blob_data_owner        = "${local.subscription_resource_id}/providers/Microsoft.Authorization/roleDefinitions/b7e6dc6d-f1e8-4753-8033-0f276bb0955b"
     storage_queue_data_contributor = "${local.subscription_resource_id}/providers/Microsoft.Authorization/roleDefinitions/974c5e8b-45b9-4653-ba55-5f855dd0fb88"
+    storage_table_data_contributor = "${local.subscription_resource_id}/providers/Microsoft.Authorization/roleDefinitions/0a9a7e1f-b9d0-4cc4-a60d-0319b160aaa3"
   }
 }

@@ -1,5 +1,3 @@
-data "azapi_client_config" "current" {}
-
 resource "random_string" "deployment_container_suffix" {
   length  = 7
   lower   = true
@@ -29,7 +27,7 @@ module "storage" {
   min_tls_version                   = "TLS1_2"
   https_traffic_only_enabled        = true
   network_rules                     = var.storage_account.network_rules
-  public_network_access_enabled     = coalesce(var.storage_account.public_network_access_enabled, true)
+  public_network_access_enabled     = local.storage_public_network_access_enabled
   shared_access_key_enabled         = var.storage_account.shared_access_key_enabled
 
   containers = {
@@ -69,6 +67,8 @@ module "serverfarm" {
 }
 
 resource "azapi_resource" "log_analytics_workspace" {
+  count = local.create_log_analytics_workspace ? 1 : 0
+
   name      = coalesce(var.log_analytics_workspace.name, "log-${var.name}")
   location  = var.location
   parent_id = local.resource_group_id
@@ -88,6 +88,8 @@ resource "azapi_resource" "log_analytics_workspace" {
 }
 
 resource "azapi_resource" "application_insights" {
+  count = var.application_insights.resource_id == null ? 1 : 0
+
   name      = coalesce(var.application_insights.name, "appi-${var.name}")
   location  = var.location
   parent_id = local.resource_group_id
@@ -98,10 +100,18 @@ resource "azapi_resource" "application_insights" {
     kind = "web"
     properties = {
       Application_Type    = "web"
-      WorkspaceResourceId = azapi_resource.log_analytics_workspace.id
+      WorkspaceResourceId = local.log_analytics_workspace_resource_id
     }
   }
 
+  response_export_values = ["properties.ConnectionString", "properties.InstrumentationKey"]
+}
+
+data "azapi_resource" "application_insights" {
+  count = var.application_insights.resource_id != null ? 1 : 0
+
+  type                   = "Microsoft.Insights/components@2020-02-02"
+  resource_id            = var.application_insights.resource_id
   response_export_values = ["properties.ConnectionString", "properties.InstrumentationKey"]
 }
 
@@ -126,7 +136,7 @@ module "this" {
   maximum_instance_count = var.maximum_instance_count
 
   https_only                    = true
-  public_network_access_enabled = coalesce(var.public_network_access_enabled, true)
+  public_network_access_enabled = local.function_public_network_access_enabled
   virtual_network_subnet_id     = var.virtual_network_subnet_id
 
   storage_account_name              = local.storage_account_name
@@ -136,8 +146,8 @@ module "this" {
   storage_user_assigned_identity_id = var.storage_managed_identity.user_assigned_resource_id
   storage_uses_managed_identity     = true
 
-  application_insights_connection_string = azapi_resource.application_insights.output.properties.ConnectionString
-  application_insights_key               = azapi_resource.application_insights.output.properties.InstrumentationKey
+  application_insights_connection_string = local.application_insights_connection_string
+  application_insights_key               = local.application_insights_instrumentation_key
 
   app_settings = local.function_app_settings
 
@@ -151,10 +161,10 @@ module "this" {
   site_config = {
     minimum_tls_version               = "1.2"
     scm_minimum_tls_version           = "1.2"
-    scm_use_main_ip_restriction       = var.site_config.scm_use_main_ip_restriction
-    vnet_route_all_enabled            = var.site_config.vnet_route_all_enabled
-    ip_restriction_default_action     = var.site_config.ip_restriction_default_action
-    scm_ip_restriction_default_action = var.site_config.scm_ip_restriction_default_action
+    scm_use_main_ip_restriction       = local.site_config_scm_use_main_ip_restriction
+    vnet_route_all_enabled            = local.site_config_vnet_route_all_enabled
+    ip_restriction_default_action     = local.site_config_ip_restriction_default_action
+    scm_ip_restriction_default_action = local.site_config_scm_ip_restriction_default_action
     ip_restriction                    = var.site_config.ip_restriction
     scm_ip_restriction                = var.site_config.scm_ip_restriction
   }

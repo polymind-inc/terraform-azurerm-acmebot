@@ -9,14 +9,14 @@ variable "name" {
   }
 }
 
-variable "resource_group_name" {
+variable "parent_id" {
   type        = string
-  description = "Resource group name to be added."
+  description = "The fully-qualified resource group resource ID where resources will be deployed."
   nullable    = false
 
   validation {
-    condition     = can(regex("^[-\\w\\._\\(\\)]{1,90}$", var.resource_group_name)) && !endswith(var.resource_group_name, ".")
-    error_message = "resource_group_name must be 1-90 characters; contain only letters, numbers, hyphens, underscores, periods, and parentheses; and must not end with a period."
+    condition     = can(provider::azapi::parse_resource_id("Microsoft.Resources/resourceGroups", var.parent_id))
+    error_message = "parent_id must be a valid Azure resource group resource ID."
   }
 }
 
@@ -70,6 +70,13 @@ variable "auth_settings_client_secret" {
   }
 }
 
+variable "enterprise_level_defaults_enabled" {
+  type        = bool
+  description = "Whether to use stricter enterprise-oriented defaults when an input is unset. When enabled, Function App and Storage public network access default to disabled, SCM follows main site IP restrictions by default, and VNET route-all defaults to enabled when VNET integration is configured. Defaults to true for enterprise deployments."
+  default     = true
+  nullable    = false
+}
+
 variable "diagnostic_settings" {
   type = map(object({
     name                                     = optional(string, null)
@@ -115,7 +122,7 @@ DESCRIPTION
 
 variable "managed_diagnostic_settings_enabled" {
   type        = bool
-  description = "Whether the module creates default diagnostic settings for the Function App and Storage Account resources to the module-managed Log Analytics workspace. When `diagnostic_settings` is set, those Function App settings are used instead of the default. Defaults to `true` for enterprise auditability."
+  description = "Whether the module creates default diagnostic settings for the Function App and Storage Account resources to the module-managed or supplied Log Analytics workspace. When `diagnostic_settings` is set, those Function App settings are used instead of the default. Defaults to `true` for enterprise auditability."
   default     = true
   nullable    = false
 }
@@ -171,7 +178,7 @@ A map of private endpoints to create for the Function App. The map key is delibe
 - `private_service_connection_name` - (Optional) The private service connection name. One will be generated if not set.
 - `network_interface_name` - (Optional) The private endpoint network interface name.
 - `location` - (Optional) The private endpoint location. Defaults to `var.location`.
-- `resource_group_name` - (Optional) The private endpoint resource group name. Defaults to `var.resource_group_name`.
+- `resource_group_name` - (Optional) The private endpoint resource group name. Defaults to the parent resource group.
 - `lock` - (Optional) The lock to apply to this private endpoint. When unset, `var.lock` is inherited.
 - `tags` - (Optional) Tags to apply to this private endpoint. When unset, `var.tags` is inherited.
 - `ip_configurations` - (Optional) A map of static IP configurations for the private endpoint.
@@ -182,7 +189,10 @@ DESCRIPTION
 
   validation {
     condition = alltrue([
-      for private_endpoint in values(var.private_endpoints) : can(regex("^/subscriptions/[^/]+/resourcegroups/[^/]+/providers/microsoft\\.network/virtualnetworks/[^/]+/subnets/[^/]+$", lower(private_endpoint.subnet_resource_id)))
+      for private_endpoint in values(var.private_endpoints) : can(provider::azapi::parse_resource_id(
+        "Microsoft.Network/virtualNetworks/subnets",
+        private_endpoint.subnet_resource_id
+      ))
     ])
     error_message = "private_endpoints[*].subnet_resource_id must be a valid subnet resource ID."
   }
@@ -190,7 +200,10 @@ DESCRIPTION
   validation {
     condition = alltrue(flatten([
       for private_endpoint in values(var.private_endpoints) : [
-        for private_dns_zone_resource_id in private_endpoint.private_dns_zone_resource_ids : can(regex("^/subscriptions/[^/]+/resourcegroups/[^/]+/providers/microsoft\\.network/privatednszones/[^/]+$", lower(private_dns_zone_resource_id)))
+        for private_dns_zone_resource_id in private_endpoint.private_dns_zone_resource_ids : can(provider::azapi::parse_resource_id(
+          "Microsoft.Network/privateDnsZones",
+          private_dns_zone_resource_id
+        ))
       ]
     ]))
     error_message = "private_endpoints[*].private_dns_zone_resource_ids must contain valid private DNS zone resource IDs."
@@ -199,7 +212,10 @@ DESCRIPTION
   validation {
     condition = alltrue(flatten([
       for private_endpoint in values(var.private_endpoints) : [
-        for application_security_group_resource_id in values(private_endpoint.application_security_group_associations) : can(regex("^/subscriptions/[^/]+/resourcegroups/[^/]+/providers/microsoft\\.network/applicationsecuritygroups/[^/]+$", lower(application_security_group_resource_id)))
+        for application_security_group_resource_id in values(private_endpoint.application_security_group_associations) : can(provider::azapi::parse_resource_id(
+          "Microsoft.Network/applicationSecurityGroups",
+          application_security_group_resource_id
+        ))
       ]
     ]))
     error_message = "private_endpoints[*].application_security_group_associations values must be valid application security group resource IDs."
@@ -254,7 +270,7 @@ variable "tags" {
 
 variable "site_config" {
   type = object({
-    ip_restriction_default_action = optional(string, "Allow")
+    ip_restriction_default_action = optional(string, null)
     ip_restriction = optional(list(object({
       action                    = optional(string, "Allow")
       ip_address                = optional(string, null)
@@ -269,7 +285,7 @@ variable "site_config" {
         x_forwarded_host  = optional(list(string), null)
       }), null)
     })), [])
-    scm_ip_restriction_default_action = optional(string, "Allow")
+    scm_ip_restriction_default_action = optional(string, null)
     scm_ip_restriction = optional(list(object({
       action                    = optional(string, "Allow")
       ip_address                = optional(string, null)
@@ -284,24 +300,24 @@ variable "site_config" {
         x_forwarded_host  = optional(list(string), null)
       }), null)
     })), [])
-    scm_use_main_ip_restriction = optional(bool, false)
-    vnet_route_all_enabled      = optional(bool, false)
+    scm_use_main_ip_restriction = optional(bool, null)
+    vnet_route_all_enabled      = optional(bool, null)
   })
   description = <<DESCRIPTION
 App Service site configuration values exposed by this module. The networking and IP restriction fields follow the AVM App Service interface shape.
 
-- `ip_restriction_default_action` - (Optional) The default action for main site IP restrictions. Possible values are `Allow` and `Deny`. Defaults to `Allow`.
+- `ip_restriction_default_action` - (Optional) The default action for main site IP restrictions. Possible values are `Allow` and `Deny`. Defaults to `Allow`, or `Deny` when `enterprise_level_defaults_enabled` is true.
 - `ip_restriction` - (Optional) A list of main site IP restriction rules.
-- `scm_ip_restriction_default_action` - (Optional) The default action for SCM site IP restrictions. Possible values are `Allow` and `Deny`. Defaults to `Allow`.
+- `scm_ip_restriction_default_action` - (Optional) The default action for SCM site IP restrictions. Possible values are `Allow` and `Deny`. Defaults to `Allow`, or `Deny` when `enterprise_level_defaults_enabled` is true.
 - `scm_ip_restriction` - (Optional) A list of SCM site IP restriction rules.
-- `scm_use_main_ip_restriction` - (Optional) Whether SCM uses the main site IP restrictions. Defaults to `false`.
-- `vnet_route_all_enabled` - (Optional) Whether all outbound traffic is routed through the integrated virtual network. Defaults to `false`.
+- `scm_use_main_ip_restriction` - (Optional) Whether SCM uses the main site IP restrictions. Defaults to `false`, or `true` when `enterprise_level_defaults_enabled` is true.
+- `vnet_route_all_enabled` - (Optional) Whether all outbound traffic is routed through the integrated virtual network. Defaults to `false`, or `true` when `enterprise_level_defaults_enabled` is true and `virtual_network_subnet_id` is set.
 DESCRIPTION
   default     = {}
   nullable    = false
 
   validation {
-    condition     = contains(["Allow", "Deny"], var.site_config.ip_restriction_default_action)
+    condition     = var.site_config.ip_restriction_default_action == null || contains(["Allow", "Deny"], var.site_config.ip_restriction_default_action)
     error_message = "site_config.ip_restriction_default_action must be either \"Allow\" or \"Deny\"."
   }
 
@@ -321,13 +337,16 @@ DESCRIPTION
 
   validation {
     condition = alltrue([
-      for rule in var.site_config.ip_restriction : rule.virtual_network_subnet_id == null || can(regex("^/subscriptions/[^/]+/resourcegroups/[^/]+/providers/microsoft\\.network/virtualnetworks/[^/]+/subnets/[^/]+$", lower(rule.virtual_network_subnet_id)))
+      for rule in var.site_config.ip_restriction : rule.virtual_network_subnet_id == null || can(provider::azapi::parse_resource_id(
+        "Microsoft.Network/virtualNetworks/subnets",
+        rule.virtual_network_subnet_id
+      ))
     ])
     error_message = "site_config.ip_restriction[*].virtual_network_subnet_id must be a valid subnet resource ID."
   }
 
   validation {
-    condition     = contains(["Allow", "Deny"], var.site_config.scm_ip_restriction_default_action)
+    condition     = var.site_config.scm_ip_restriction_default_action == null || contains(["Allow", "Deny"], var.site_config.scm_ip_restriction_default_action)
     error_message = "site_config.scm_ip_restriction_default_action must be either \"Allow\" or \"Deny\"."
   }
 
@@ -347,7 +366,10 @@ DESCRIPTION
 
   validation {
     condition = alltrue([
-      for rule in var.site_config.scm_ip_restriction : rule.virtual_network_subnet_id == null || can(regex("^/subscriptions/[^/]+/resourcegroups/[^/]+/providers/microsoft\\.network/virtualnetworks/[^/]+/subnets/[^/]+$", lower(rule.virtual_network_subnet_id)))
+      for rule in var.site_config.scm_ip_restriction : rule.virtual_network_subnet_id == null || can(provider::azapi::parse_resource_id(
+        "Microsoft.Network/virtualNetworks/subnets",
+        rule.virtual_network_subnet_id
+      ))
     ])
     error_message = "site_config.scm_ip_restriction[*].virtual_network_subnet_id must be a valid subnet resource ID."
   }
@@ -371,7 +393,10 @@ DESCRIPTION
 
   validation {
     condition = alltrue([
-      for resource_id in var.managed_identities.user_assigned_resource_ids : can(regex("^/subscriptions/[^/]+/resourcegroups/[^/]+/providers/microsoft\\.managedidentity/userassignedidentities/[^/]+$", lower(resource_id)))
+      for resource_id in var.managed_identities.user_assigned_resource_ids : can(provider::azapi::parse_resource_id(
+        "Microsoft.ManagedIdentity/userAssignedIdentities",
+        resource_id
+      ))
     ])
     error_message = "managed_identities.user_assigned_resource_ids must contain valid user-assigned managed identity resource IDs."
   }
@@ -530,7 +555,7 @@ Controls the Storage Account used by the Function App deployment package.
 - `account_replication_type` - (Optional) The replication type for the Storage Account. Possible values are `LRS`, `GRS`, `RAGRS`, `ZRS`, `GZRS`, and `RAGZRS`. Defaults to `LRS`.
 - `default_to_oauth_authentication` - (Optional) Whether Azure portal data-plane access defaults to Microsoft Entra authorization. Defaults to `true`.
 - `infrastructure_encryption_enabled` - (Optional) Whether infrastructure encryption is enabled. Defaults to `true`.
-- `public_network_access_enabled` - (Optional) Whether public network access is enabled for the Storage Account. Defaults to `true` in this module so minimal deployments remain reachable; set it to `false` with `virtual_network_subnet_id` and `blob`/`queue` private endpoints for private enterprise deployments.
+- `public_network_access_enabled` - (Optional) Whether public network access is enabled for the Storage Account. Defaults to `true`, or `false` when `enterprise_level_defaults_enabled` is true. Set it to `false` with `virtual_network_subnet_id` and `blob`/`queue`/`table` private endpoints for private enterprise deployments.
 - `shared_access_key_enabled` - (Optional) Whether Shared Key authorization is enabled. Defaults to `false`; `AzureWebJobsStorage` uses managed identity.
 - `blob_properties` - (Optional) Blob service properties. Defaults enable blob versioning, change feed, blob soft delete, and container soft delete with 30-day retention.
 - `network_rules` - (Optional) Storage firewall rules. Defaults to `null` to leave public-network reachability controlled by `public_network_access_enabled`; set an object to configure selected networks.
@@ -544,7 +569,7 @@ Controls the Storage Account used by the Function App deployment package.
 - `private_endpoints.private_service_connection_name` - (Optional) The private service connection name. One will be generated if not set.
 - `private_endpoints.network_interface_name` - (Optional) The private endpoint network interface name.
 - `private_endpoints.location` - (Optional) The private endpoint location. Defaults to `var.location`.
-- `private_endpoints.resource_group_name` - (Optional) The private endpoint resource group name. Defaults to `var.resource_group_name`.
+- `private_endpoints.resource_group_name` - (Optional) The private endpoint resource group name. Defaults to the parent resource group.
 - `private_endpoints.lock` - (Optional) The lock to apply to this private endpoint. When unset, `var.lock` is inherited.
 - `private_endpoints.tags` - (Optional) Tags to apply to the private endpoint. When unset, `var.tags` is inherited.
 - `private_endpoints.ip_configurations` - (Optional) A map of static IP configurations for the private endpoint.
@@ -617,15 +642,18 @@ DESCRIPTION
   }
 
   validation {
-    condition = var.storage_account.public_network_access_enabled != false ? true : alltrue([
-      for subresource_name in ["blob", "queue"] : contains([for private_endpoint in values(var.storage_account.private_endpoints) : private_endpoint.subresource_name], subresource_name)
-    ])
-    error_message = "storage_account.private_endpoints must include blob and queue endpoints when storage_account.public_network_access_enabled is false."
+    condition = (var.storage_account.public_network_access_enabled == false || (var.storage_account.public_network_access_enabled == null && var.enterprise_level_defaults_enabled)) ? alltrue([
+      for subresource_name in ["blob", "queue", "table"] : contains([for private_endpoint in values(var.storage_account.private_endpoints) : private_endpoint.subresource_name], subresource_name)
+    ]) : true
+    error_message = "storage_account.private_endpoints must include blob, queue, and table endpoints when storage_account.public_network_access_enabled is false or enterprise_level_defaults_enabled is true."
   }
 
   validation {
     condition = alltrue([
-      for private_endpoint in values(var.storage_account.private_endpoints) : can(regex("^/subscriptions/[^/]+/resourcegroups/[^/]+/providers/microsoft\\.network/virtualnetworks/[^/]+/subnets/[^/]+$", lower(private_endpoint.subnet_resource_id)))
+      for private_endpoint in values(var.storage_account.private_endpoints) : can(provider::azapi::parse_resource_id(
+        "Microsoft.Network/virtualNetworks/subnets",
+        private_endpoint.subnet_resource_id
+      ))
     ])
     error_message = "storage_account.private_endpoints[*].subnet_resource_id must be a valid subnet resource ID."
   }
@@ -640,7 +668,10 @@ DESCRIPTION
   validation {
     condition = alltrue(flatten([
       for private_endpoint in values(var.storage_account.private_endpoints) : [
-        for private_dns_zone_resource_id in private_endpoint.private_dns_zone_resource_ids : can(regex("^/subscriptions/[^/]+/resourcegroups/[^/]+/providers/microsoft\\.network/privatednszones/[^/]+$", lower(private_dns_zone_resource_id)))
+        for private_dns_zone_resource_id in private_endpoint.private_dns_zone_resource_ids : can(provider::azapi::parse_resource_id(
+          "Microsoft.Network/privateDnsZones",
+          private_dns_zone_resource_id
+        ))
       ]
     ]))
     error_message = "storage_account.private_endpoints[*].private_dns_zone_resource_ids must contain valid private DNS zone resource IDs."
@@ -649,7 +680,10 @@ DESCRIPTION
   validation {
     condition = alltrue(flatten([
       for private_endpoint in values(var.storage_account.private_endpoints) : [
-        for application_security_group_resource_id in values(private_endpoint.application_security_group_associations) : can(regex("^/subscriptions/[^/]+/resourcegroups/[^/]+/providers/microsoft\\.network/applicationsecuritygroups/[^/]+$", lower(application_security_group_resource_id)))
+        for application_security_group_resource_id in values(private_endpoint.application_security_group_associations) : can(provider::azapi::parse_resource_id(
+          "Microsoft.Network/applicationSecurityGroups",
+          application_security_group_resource_id
+        ))
       ]
     ]))
     error_message = "storage_account.private_endpoints[*].application_security_group_associations values must be valid application security group resource IDs."
@@ -721,6 +755,7 @@ DESCRIPTION
 
 variable "log_analytics_workspace" {
   type = object({
+    resource_id       = optional(string, null)
     name              = optional(string, null)
     retention_in_days = optional(number, 30)
     tags              = optional(map(string), null)
@@ -728,12 +763,21 @@ variable "log_analytics_workspace" {
   description = <<DESCRIPTION
 Controls the Log Analytics workspace used by Application Insights.
 
+- `resource_id` - (Optional) The resource ID of an existing Log Analytics workspace to use for Application Insights and managed diagnostic settings. When set, this module does not create a workspace.
 - `name` - (Optional) The name of the Log Analytics workspace. When unset, the module generates a CAF-aligned name using the `log` prefix.
-- `retention_in_days` - (Optional) The workspace retention period in days. Defaults to `30`.
-- `tags` - (Optional) Tags to apply to the Log Analytics workspace. When unset, `var.tags` is inherited.
+- `retention_in_days` - (Optional) The workspace retention period in days when the module creates the workspace. Defaults to `30`.
+- `tags` - (Optional) Tags to apply to the module-created Log Analytics workspace. When unset, `var.tags` is inherited.
 DESCRIPTION
   default     = {}
   nullable    = false
+
+  validation {
+    condition = var.log_analytics_workspace.resource_id == null || can(provider::azapi::parse_resource_id(
+      "Microsoft.OperationalInsights/workspaces",
+      var.log_analytics_workspace.resource_id
+    ))
+    error_message = "log_analytics_workspace.resource_id must be a valid Log Analytics workspace resource ID."
+  }
 
   validation {
     condition     = var.log_analytics_workspace.name == null || can(regex("^[A-Za-z0-9][A-Za-z0-9-]*[A-Za-z0-9]$", var.log_analytics_workspace.name))
@@ -748,17 +792,27 @@ DESCRIPTION
 
 variable "application_insights" {
   type = object({
-    name = optional(string, null)
-    tags = optional(map(string), null)
+    resource_id = optional(string, null)
+    name        = optional(string, null)
+    tags        = optional(map(string), null)
   })
   description = <<DESCRIPTION
 Controls the Application Insights component connected to the Function App.
 
+- `resource_id` - (Optional) The resource ID of an existing Application Insights component. When set, this module does not create an Application Insights component.
 - `name` - (Optional) The name of the Application Insights component. When unset, the module generates a CAF-aligned name using the `appi` prefix.
-- `tags` - (Optional) Tags to apply to the Application Insights component. When unset, `var.tags` is inherited.
+- `tags` - (Optional) Tags to apply to the module-created Application Insights component. When unset, `var.tags` is inherited.
 DESCRIPTION
   default     = {}
   nullable    = false
+
+  validation {
+    condition = var.application_insights.resource_id == null || can(provider::azapi::parse_resource_id(
+      "Microsoft.Insights/components",
+      var.application_insights.resource_id
+    ))
+    error_message = "application_insights.resource_id must be a valid Application Insights component resource ID."
+  }
 
   validation {
     condition     = var.application_insights.name == null || can(regex("^[A-Za-z0-9][A-Za-z0-9-]*[A-Za-z0-9]$", var.application_insights.name))
@@ -768,12 +822,12 @@ DESCRIPTION
 
 variable "public_network_access_enabled" {
   type        = bool
-  description = "Whether public network access is enabled for the Function App."
+  description = "Whether public network access is enabled for the Function App. Defaults to `true`, or `false` when `enterprise_level_defaults_enabled` is true."
   default     = null
 
   validation {
-    condition     = var.public_network_access_enabled != false || length(var.private_endpoints) > 0
-    error_message = "private_endpoints must be set when public_network_access_enabled is false so the Function App has a private ingress path."
+    condition     = (var.public_network_access_enabled == false || (var.public_network_access_enabled == null && var.enterprise_level_defaults_enabled)) ? length(var.private_endpoints) > 0 : true
+    error_message = "private_endpoints must be set when public_network_access_enabled is false or enterprise_level_defaults_enabled is true so the Function App has a private ingress path."
   }
 }
 
@@ -783,7 +837,10 @@ variable "virtual_network_subnet_id" {
   default     = null
 
   validation {
-    condition     = var.virtual_network_subnet_id == null || can(regex("^/subscriptions/[^/]+/resourcegroups/[^/]+/providers/microsoft\\.network/virtualnetworks/[^/]+/subnets/[^/]+$", lower(var.virtual_network_subnet_id)))
+    condition = var.virtual_network_subnet_id == null || can(provider::azapi::parse_resource_id(
+      "Microsoft.Network/virtualNetworks/subnets",
+      var.virtual_network_subnet_id
+    ))
     error_message = "virtual_network_subnet_id must be a valid subnet resource ID."
   }
 
@@ -793,8 +850,8 @@ variable "virtual_network_subnet_id" {
   }
 
   validation {
-    condition     = var.storage_account.public_network_access_enabled != false || var.virtual_network_subnet_id != null
-    error_message = "virtual_network_subnet_id must be set when storage_account.public_network_access_enabled is false so the Function App can reach Storage through Private Endpoint."
+    condition     = (var.storage_account.public_network_access_enabled == false || (var.storage_account.public_network_access_enabled == null && var.enterprise_level_defaults_enabled)) ? var.virtual_network_subnet_id != null : true
+    error_message = "virtual_network_subnet_id must be set when storage_account.public_network_access_enabled is false or enterprise_level_defaults_enabled is true so the Function App can reach Storage through Private Endpoint."
   }
 
   validation {
@@ -823,7 +880,10 @@ DESCRIPTION
   nullable    = false
 
   validation {
-    condition     = var.storage_managed_identity.user_assigned_resource_id == null || can(regex("^/subscriptions/[^/]+/resourcegroups/[^/]+/providers/microsoft\\.managedidentity/userassignedidentities/[^/]+$", lower(var.storage_managed_identity.user_assigned_resource_id)))
+    condition = var.storage_managed_identity.user_assigned_resource_id == null || can(provider::azapi::parse_resource_id(
+      "Microsoft.ManagedIdentity/userAssignedIdentities",
+      var.storage_managed_identity.user_assigned_resource_id
+    ))
     error_message = "storage_managed_identity.user_assigned_resource_id must be a valid user-assigned managed identity resource ID."
   }
 

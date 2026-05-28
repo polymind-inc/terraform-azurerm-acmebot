@@ -7,7 +7,7 @@ provider "azurerm" {
 }
 
 terraform {
-  required_version = ">= 1.3.0, < 2.0.0"
+  required_version = ">= 1.10.0, < 2.0.0"
 
   required_providers {
     azurerm = {
@@ -149,10 +149,13 @@ module "acmebot" {
   source = "../../"
 
   name                   = "func-acmebot-${random_string.random.result}"
-  resource_group_name    = azurerm_resource_group.default.name
+  parent_id              = azurerm_resource_group.default.id
   location               = azurerm_resource_group.default.location
   maximum_instance_count = 50
   instance_memory_in_mb  = 2048
+  # This example keeps the quickstart publicly reachable. Production enterprise
+  # deployments should keep the default enterprise-level private networking posture.
+  enterprise_level_defaults_enabled = false
   tags = {
     workload = "acmebot"
   }

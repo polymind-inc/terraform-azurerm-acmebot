@@ -10,12 +10,14 @@ module "acmebot" {
   source  = "polymind-inc/acmebot/azurerm"
   version = "~> 1.0"
 
-  name                = "func-acmebot-module"
-  resource_group_name = azurerm_resource_group.default.name
-  location            = azurerm_resource_group.default.location
+  name      = "func-acmebot-module"
+  parent_id = azurerm_resource_group.default.id
+  location  = azurerm_resource_group.default.location
   tags = {
     workload = "acmebot"
   }
+
+  enterprise_level_defaults_enabled = true
 
   acmebot = {
     version      = "5.0.1"
@@ -123,20 +125,23 @@ module "acmebot" {
 ## Notes
 
 - `name` is the Function App name. It must be 2-32 characters; contain only letters, numbers, and hyphens; and start and end with a letter or number.
+- `parent_id` is the AVM-aligned deployment scope input and must be the resource ID of an existing resource group.
 - `acmebot.version` must be a Semantic Versioning 2.0.0 version, such as `5.0.1`, `5.0.1-beta.1`, or `5.0.1+build.5`.
 - Secret inputs are marked as sensitive, but they are still stored in Terraform state when used to configure the Function App.
 - This module uses an AzAPI-first implementation with AVM-aligned interface patterns and is published under the Terraform Registry `azurerm` namespace, but it is not an official Azure Verified Module.
 - AVM-style `diagnostic_settings`, `lock`, `managed_identities`, `role_assignments`, and `private_endpoints` inputs can apply diagnostic settings, resource locks, managed identities, RBAC assignments, and Private Endpoints to the Function App.
 - Acmebot workload settings are grouped under `acmebot`, including ACME account settings, Key Vault target, DNS provider configuration, webhook configuration, and External Account Binding.
 - `AzureWebJobsStorage` and Flex Consumption package deployment storage use managed identity. By default this is the system-assigned identity; set `storage_managed_identity.user_assigned_resource_id` to use an attached user-assigned identity instead.
-- The selected Storage identity receives Storage Account Contributor, Storage Blob Data Owner, and Storage Queue Data Contributor on the module-created Storage Account for identity-based host storage.
+- The selected Storage identity receives Storage Account Contributor, Storage Blob Data Owner, Storage Queue Data Contributor, and Storage Table Data Contributor on the module-created Storage Account for identity-based host storage.
 - Storage Account Shared Key authorization is disabled by default. Blob versioning, change feed, blob soft delete, container soft delete, Entra-first portal auth, and infrastructure encryption are enabled by default.
-- Default diagnostic settings are created for the Function App and Storage Account resources to the module-managed Log Analytics workspace. Set `managed_diagnostic_settings_enabled = false` to manage diagnostics externally.
+- Default diagnostic settings are created for the Function App and Storage Account resources to the module-managed or supplied Log Analytics workspace. Set `managed_diagnostic_settings_enabled = false` to manage diagnostics externally.
+- Set `log_analytics_workspace.resource_id` and/or `application_insights.resource_id` to use existing monitoring resources instead of creating new ones. When Application Insights is supplied and managed diagnostics are disabled, the module does not create a Log Analytics workspace unless one is explicitly needed elsewhere.
+- `enterprise_level_defaults_enabled` is enabled by default to disable public network access when unset, make SCM follow main IP restrictions, and enable route-all when VNET integration is configured.
 - To make Acmebot itself use a user-assigned managed identity for workload access, also attach it through `managed_identities.user_assigned_resource_ids` and set `acmebot.managed_identity_client_id`; the module maps it to `Acmebot__ManagedIdentityClientId`.
 - Child resources inherit `var.tags` by default, support child-specific tag overrides where Azure supports tags, and use CAF-aligned default name prefixes where applicable.
 - Child resource settings can be overridden with `storage_account`, `deployment_container`, `service_plan`, `log_analytics_workspace`, and `application_insights`.
 - VNET integration uses the AVM App Service naming pattern `virtual_network_subnet_id`, and outbound route-all is configured with `site_config.vnet_route_all_enabled`.
-- When `virtual_network_subnet_id` is set, `storage_account.private_endpoints` is required so Azure Functions can access its Storage Account through Private Endpoint. When Storage public access is disabled, `blob` and `queue` private endpoints are required. The Flex Consumption VNET integration subnet cannot be shared with Private Endpoints, so provide a separate subnet.
+- When `virtual_network_subnet_id` is set, `storage_account.private_endpoints` is required so Azure Functions can access its Storage Account through Private Endpoint. When Storage public access is disabled, `blob`, `queue`, and `table` private endpoints are required. The Flex Consumption VNET integration subnet cannot be shared with Private Endpoints, so provide a separate subnet.
 - Storage Account Private Endpoints use the AVM private endpoint shape. Create entries for the storage subresources your Function App needs, typically `blob`, `queue`, and `table`, and set matching `private_dns_zone_resource_ids`.
 - IP restrictions use AVM App Service-style `site_config.ip_restriction`, `site_config.scm_ip_restriction`, `site_config.ip_restriction_default_action`, `site_config.scm_ip_restriction_default_action`, and `site_config.scm_use_main_ip_restriction`.
 - Private Endpoints default to the Function App `sites` subresource and manage a private DNS zone group when `private_dns_zone_resource_ids` is set.
@@ -155,8 +160,6 @@ The following requirements are needed by this module:
 
 - <a name="requirement_random"></a> [random](#requirement\_random) (>= 3.5.0, < 4.0.0)
 
-- <a name="requirement_time"></a> [time](#requirement\_time) (>= 0.9.0, < 1.0.0)
-
 ## Providers
 
 The following providers are used by this module:
@@ -169,12 +172,12 @@ The following providers are used by this module:
 
 The following resources are used by this module:
 
-- [azapi_resource.deployment](https://registry.terraform.io/providers/Azure/azapi/latest/docs/resources/resource) (resource)
 - [azapi_resource.application_insights](https://registry.terraform.io/providers/Azure/azapi/latest/docs/resources/resource) (resource)
+- [azapi_resource.deployment](https://registry.terraform.io/providers/Azure/azapi/latest/docs/resources/resource) (resource)
 - [azapi_resource.log_analytics_workspace](https://registry.terraform.io/providers/Azure/azapi/latest/docs/resources/resource) (resource)
 - [azapi_resource.storage_account_function_app_role_assignment](https://registry.terraform.io/providers/Azure/azapi/latest/docs/resources/resource) (resource)
 - [random_string.deployment_container_suffix](https://registry.terraform.io/providers/hashicorp/random/latest/docs/resources/string) (resource)
-- [azapi_client_config.current](https://registry.terraform.io/providers/Azure/azapi/latest/docs/data-sources/client_config) (data source)
+- [azapi_resource.application_insights](https://registry.terraform.io/providers/Azure/azapi/latest/docs/data-sources/resource) (data source)
 - [azapi_resource.storage_user_assigned_identity](https://registry.terraform.io/providers/Azure/azapi/latest/docs/data-sources/resource) (data source)
 - [azapi_resource_action.function_host_keys](https://registry.terraform.io/providers/Azure/azapi/latest/docs/data-sources/resource_action) (data source)
 
@@ -307,9 +310,9 @@ Description: The name of the Function App.
 
 Type: `string`
 
-### <a name="input_resource_group_name"></a> [resource\_group\_name](#input\_resource\_group\_name)
+### <a name="input_parent_id"></a> [parent\_id](#input\_parent\_id)
 
-Description: Resource group name to be added.
+Description: The fully-qualified resource group resource ID where resources will be deployed.
 
 Type: `string`
 
@@ -329,15 +332,17 @@ Default: `{}`
 
 Description: Controls the Application Insights component connected to the Function App.
 
+- `resource_id` - (Optional) The resource ID of an existing Application Insights component. When set, this module does not create an Application Insights component.
 - `name` - (Optional) The name of the Application Insights component. When unset, the module generates a CAF-aligned name using the `appi` prefix.
-- `tags` - (Optional) Tags to apply to the Application Insights component. When unset, `var.tags` is inherited.
+- `tags` - (Optional) Tags to apply to the module-created Application Insights component. When unset, `var.tags` is inherited.
 
 Type:
 
 ```hcl
 object({
-    name = optional(string, null)
-    tags = optional(map(string), null)
+    resource_id = optional(string, null)
+    name        = optional(string, null)
+    tags        = optional(map(string), null)
   })
 ```
 
@@ -423,14 +428,6 @@ map(object({
 
 Default: `{}`
 
-### <a name="input_managed_diagnostic_settings_enabled"></a> [managed\_diagnostic\_settings\_enabled](#input\_managed\_diagnostic\_settings\_enabled)
-
-Description: Whether the module creates default diagnostic settings for the Function App and Storage Account resources to the module-managed Log Analytics workspace. When `diagnostic_settings` is set, those Function App settings are used instead of the default. Defaults to `true` for enterprise auditability.
-
-Type: `bool`
-
-Default: `true`
-
 ### <a name="input_enable_telemetry"></a> [enable\_telemetry](#input\_enable\_telemetry)
 
 Description: Whether to enable AVM telemetry on the underlying Azure Verified Modules consumed by this module. When `true`, the value is forwarded to every AVM child module's `enable_telemetry` input. Defaults to `false` because this module is a community pattern and is not an official Azure Verified Module; consumers must opt in explicitly to send telemetry through the AVM `modtm` provider.
@@ -438,6 +435,14 @@ Description: Whether to enable AVM telemetry on the underlying Azure Verified Mo
 Type: `bool`
 
 Default: `false`
+
+### <a name="input_enterprise_level_defaults_enabled"></a> [enterprise\_level\_defaults\_enabled](#input\_enterprise\_level\_defaults\_enabled)
+
+Description: Whether to use stricter enterprise-oriented defaults when an input is unset. When enabled, Function App and Storage public network access default to disabled, SCM follows main site IP restrictions by default, and VNET route-all defaults to enabled when VNET integration is configured. Defaults to true for enterprise deployments.
+
+Type: `bool`
+
+Default: `true`
 
 ### <a name="input_export_api_key"></a> [export\_api\_key](#input\_export\_api\_key)
 
@@ -477,14 +482,16 @@ Default: `null`
 
 Description: Controls the Log Analytics workspace used by Application Insights.
 
+- `resource_id` - (Optional) The resource ID of an existing Log Analytics workspace to use for Application Insights and managed diagnostic settings. When set, this module does not create a workspace.
 - `name` - (Optional) The name of the Log Analytics workspace. When unset, the module generates a CAF-aligned name using the `log` prefix.
-- `retention_in_days` - (Optional) The workspace retention period in days. Defaults to `30`.
-- `tags` - (Optional) Tags to apply to the Log Analytics workspace. When unset, `var.tags` is inherited.
+- `retention_in_days` - (Optional) The workspace retention period in days when the module creates the workspace. Defaults to `30`.
+- `tags` - (Optional) Tags to apply to the module-created Log Analytics workspace. When unset, `var.tags` is inherited.
 
 Type:
 
 ```hcl
 object({
+    resource_id       = optional(string, null)
     name              = optional(string, null)
     retention_in_days = optional(number, 30)
     tags              = optional(map(string), null)
@@ -492,6 +499,14 @@ object({
 ```
 
 Default: `{}`
+
+### <a name="input_managed_diagnostic_settings_enabled"></a> [managed\_diagnostic\_settings\_enabled](#input\_managed\_diagnostic\_settings\_enabled)
+
+Description: Whether the module creates default diagnostic settings for the Function App and Storage Account resources to the module-managed or supplied Log Analytics workspace. When `diagnostic_settings` is set, those Function App settings are used instead of the default. Defaults to `true` for enterprise auditability.
+
+Type: `bool`
+
+Default: `true`
 
 ### <a name="input_managed_identities"></a> [managed\_identities](#input\_managed\_identities)
 
@@ -511,9 +526,9 @@ object({
 
 Default:
 
-```hcl
+```json
 {
-  system_assigned = true
+  "system_assigned": true
 }
 ```
 
@@ -538,7 +553,7 @@ Description: A map of private endpoints to create for the Function App. The map 
 - `private_service_connection_name` - (Optional) The private service connection name. One will be generated if not set.
 - `network_interface_name` - (Optional) The private endpoint network interface name.
 - `location` - (Optional) The private endpoint location. Defaults to `var.location`.
-- `resource_group_name` - (Optional) The private endpoint resource group name. Defaults to `var.resource_group_name`.
+- `resource_group_name` - (Optional) The private endpoint resource group name. Defaults to the parent resource group.
 - `lock` - (Optional) The lock to apply to this private endpoint. When unset, `var.lock` is inherited.
 - `tags` - (Optional) Tags to apply to this private endpoint. When unset, `var.tags` is inherited.
 - `ip_configurations` - (Optional) A map of static IP configurations for the private endpoint.
@@ -592,7 +607,7 @@ Default: `true`
 
 ### <a name="input_public_network_access_enabled"></a> [public\_network\_access\_enabled](#input\_public\_network\_access\_enabled)
 
-Description: Whether public network access is enabled for the Function App. When set to `false`, `private_endpoints` must be configured so the app has a private ingress path.
+Description: Whether public network access is enabled for the Function App. Defaults to `true`, or `false` when `enterprise_level_defaults_enabled` is true.
 
 Type: `bool`
 
@@ -650,18 +665,18 @@ Default: `{}`
 
 Description: App Service site configuration values exposed by this module. The networking and IP restriction fields follow the AVM App Service interface shape.
 
-- `ip_restriction_default_action` - (Optional) The default action for main site IP restrictions. Possible values are `Allow` and `Deny`. Defaults to `Allow`.
+- `ip_restriction_default_action` - (Optional) The default action for main site IP restrictions. Possible values are `Allow` and `Deny`. Defaults to `Allow`, or `Deny` when `enterprise_level_defaults_enabled` is true.
 - `ip_restriction` - (Optional) A list of main site IP restriction rules.
-- `scm_ip_restriction_default_action` - (Optional) The default action for SCM site IP restrictions. Possible values are `Allow` and `Deny`. Defaults to `Allow`.
+- `scm_ip_restriction_default_action` - (Optional) The default action for SCM site IP restrictions. Possible values are `Allow` and `Deny`. Defaults to `Allow`, or `Deny` when `enterprise_level_defaults_enabled` is true.
 - `scm_ip_restriction` - (Optional) A list of SCM site IP restriction rules.
-- `scm_use_main_ip_restriction` - (Optional) Whether SCM uses the main site IP restrictions. Defaults to `false`.
-- `vnet_route_all_enabled` - (Optional) Whether all outbound traffic is routed through the integrated virtual network. Defaults to `false`.
+- `scm_use_main_ip_restriction` - (Optional) Whether SCM uses the main site IP restrictions. Defaults to `false`, or `true` when `enterprise_level_defaults_enabled` is true.
+- `vnet_route_all_enabled` - (Optional) Whether all outbound traffic is routed through the integrated virtual network. Defaults to `false`, or `true` when `enterprise_level_defaults_enabled` is true and `virtual_network_subnet_id` is set.
 
 Type:
 
 ```hcl
 object({
-    ip_restriction_default_action = optional(string, "Allow")
+    ip_restriction_default_action = optional(string, null)
     ip_restriction = optional(list(object({
       action                    = optional(string, "Allow")
       ip_address                = optional(string, null)
@@ -676,7 +691,7 @@ object({
         x_forwarded_host  = optional(list(string), null)
       }), null)
     })), [])
-    scm_ip_restriction_default_action = optional(string, "Allow")
+    scm_ip_restriction_default_action = optional(string, null)
     scm_ip_restriction = optional(list(object({
       action                    = optional(string, "Allow")
       ip_address                = optional(string, null)
@@ -691,8 +706,8 @@ object({
         x_forwarded_host  = optional(list(string), null)
       }), null)
     })), [])
-    scm_use_main_ip_restriction = optional(bool, false)
-    vnet_route_all_enabled      = optional(bool, false)
+    scm_use_main_ip_restriction = optional(bool, null)
+    vnet_route_all_enabled      = optional(bool, null)
   })
 ```
 
@@ -706,7 +721,7 @@ Description: Controls the Storage Account used by the Function App deployment pa
 - `account_replication_type` - (Optional) The replication type for the Storage Account. Possible values are `LRS`, `GRS`, `RAGRS`, `ZRS`, `GZRS`, and `RAGZRS`. Defaults to `LRS`.
 - `default_to_oauth_authentication` - (Optional) Whether Azure portal data-plane access defaults to Microsoft Entra authorization. Defaults to `true`.
 - `infrastructure_encryption_enabled` - (Optional) Whether infrastructure encryption is enabled. Defaults to `true`.
-- `public_network_access_enabled` - (Optional) Whether public network access is enabled for the Storage Account. Defaults to `true` in this module so minimal deployments remain reachable; set it to `false` with `virtual_network_subnet_id` and `blob`/`queue` private endpoints for private enterprise deployments.
+- `public_network_access_enabled` - (Optional) Whether public network access is enabled for the Storage Account. Defaults to `true`, or `false` when `enterprise_level_defaults_enabled` is true. Set it to `false` with `virtual_network_subnet_id` and `blob`/`queue`/`table` private endpoints for private enterprise deployments.
 - `shared_access_key_enabled` - (Optional) Whether Shared Key authorization is enabled. Defaults to `false`; `AzureWebJobsStorage` uses managed identity.
 - `blob_properties` - (Optional) Blob service properties. Defaults enable blob versioning, change feed, blob soft delete, and container soft delete with 30-day retention.
 - `network_rules` - (Optional) Storage firewall rules. Defaults to `null` to leave public-network reachability controlled by `public_network_access_enabled`; set an object to configure selected networks.
@@ -720,7 +735,7 @@ Description: Controls the Storage Account used by the Function App deployment pa
 - `private_endpoints.private_service_connection_name` - (Optional) The private service connection name. One will be generated if not set.
 - `private_endpoints.network_interface_name` - (Optional) The private endpoint network interface name.
 - `private_endpoints.location` - (Optional) The private endpoint location. Defaults to `var.location`.
-- `private_endpoints.resource_group_name` - (Optional) The private endpoint resource group name. Defaults to `var.resource_group_name`.
+- `private_endpoints.resource_group_name` - (Optional) The private endpoint resource group name. Defaults to the parent resource group.
 - `private_endpoints.lock` - (Optional) The lock to apply to this private endpoint. When unset, `var.lock` is inherited.
 - `private_endpoints.tags` - (Optional) Tags to apply to the private endpoint. When unset, `var.tags` is inherited.
 - `private_endpoints.ip_configurations` - (Optional) A map of static IP configurations for the private endpoint.
@@ -757,7 +772,7 @@ object({
         enabled = bool
       }))
       versioning_enabled = optional(bool)
-    }), {
+      }), {
       change_feed = {
         enabled           = true
         retention_in_days = 30
