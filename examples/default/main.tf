@@ -7,7 +7,7 @@ provider "azurerm" {
 }
 
 terraform {
-  required_version = ">= 1.3.0, < 2.0.0"
+  required_version = ">= 1.10.0, < 2.0.0"
 
   required_providers {
     azurerm = {
@@ -148,18 +148,19 @@ resource "azurerm_role_assignment" "default" {
 module "acmebot" {
   source = "../../"
 
-  name                   = "func-acmebot-${random_string.random.result}"
-  resource_group_name    = azurerm_resource_group.default.name
-  location               = azurerm_resource_group.default.location
-  maximum_instance_count = 50
-  instance_memory_in_mb  = 2048
+  name                          = "func-acmebot-${random_string.random.result}"
+  parent_id                     = azurerm_resource_group.default.id
+  location                      = azurerm_resource_group.default.location
+  maximum_instance_count        = 50
+  instance_memory_in_mb         = 2048
+  public_network_access_enabled = true
   tags = {
     workload = "acmebot"
   }
 
   acmebot = {
     version      = "5.0.1"
-    mail_address = "YOUR-EMAIL-ADDRESS"
+    mail_address = "admin@example.com"
     vault_uri    = azurerm_key_vault.default.vault_uri
 
     dns_providers = {
@@ -173,11 +174,25 @@ module "acmebot" {
     system_assigned = true
   }
 
-  # To use a user-assigned managed identity for Acmebot, assign Key Vault access
-  # to that identity and pass both the AVM-style resource ID and Acmebot client ID.
+  storage_account = {
+    public_network_access_enabled = true
+  }
+
+  site_config = {
+    ip_restriction_default_action     = "Allow"
+    scm_ip_restriction_default_action = "Allow"
+    scm_use_main_ip_restriction       = false
+  }
+
+  # To use a user-assigned managed identity for Acmebot and AzureWebJobsStorage,
+  # attach it to the Function App, select it for Storage, assign Key Vault access
+  # to it, and pass its client ID to Acmebot.
   # managed_identities = {
   #   system_assigned            = false
   #   user_assigned_resource_ids = [azurerm_user_assigned_identity.acmebot.id]
+  # }
+  # storage_managed_identity = {
+  #   user_assigned_resource_id = azurerm_user_assigned_identity.acmebot.id
   # }
   # Add this to the acmebot object above:
   # managed_identity_client_id = azurerm_user_assigned_identity.acmebot.client_id

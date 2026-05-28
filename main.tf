@@ -1,5 +1,3 @@
-data "azapi_client_config" "current" {}
-
 resource "random_string" "deployment_container_suffix" {
   length  = 7
   lower   = true
@@ -18,20 +16,30 @@ module "storage" {
   enable_telemetry = var.enable_telemetry
   tags             = var.storage_account.tags != null ? var.storage_account.tags : local.tags
 
-  account_kind                    = "StorageV2"
-  account_tier                    = "Standard"
-  account_replication_type        = var.storage_account.account_replication_type
-  account_sku_name                = local.storage_account_sku_name
-  allow_nested_items_to_be_public = false
-  min_tls_version                 = "TLS1_2"
-  https_traffic_only_enabled      = true
-  public_network_access_enabled   = coalesce(var.storage_account.public_network_access_enabled, true)
+  account_kind                      = "StorageV2"
+  account_tier                      = "Standard"
+  account_replication_type          = var.storage_account.account_replication_type
+  account_sku_name                  = local.storage_account_sku_name
+  allow_nested_items_to_be_public   = false
+  blob_properties                   = var.storage_account.blob_properties
+  default_to_oauth_authentication   = var.storage_account.default_to_oauth_authentication
+  infrastructure_encryption_enabled = var.storage_account.infrastructure_encryption_enabled
+  min_tls_version                   = "TLS1_2"
+  https_traffic_only_enabled        = true
+  network_rules                     = var.storage_account.network_rules
+  public_network_access_enabled     = local.storage_public_network_access_enabled
+  shared_access_key_enabled         = var.storage_account.shared_access_key_enabled
 
   containers = {
     deployment = {
       name = local.deployment_container_name
     }
   }
+
+  diagnostic_settings_blob            = local.storage_service_diagnostic_settings
+  diagnostic_settings_queue           = local.storage_service_diagnostic_settings
+  diagnostic_settings_storage_account = local.storage_account_diagnostic_settings
+  diagnostic_settings_table           = local.storage_service_diagnostic_settings
 
   private_endpoints_manage_dns_zone_group = var.private_endpoints_manage_dns_zone_group
 
@@ -41,7 +49,7 @@ module "storage" {
     })
   }
 
-  role_assignments = local.storage_account_role_assignments
+  role_assignments = {}
 }
 
 module "serverfarm" {
@@ -58,32 +66,53 @@ module "serverfarm" {
   sku_name = "FC1"
 }
 
-module "workspace" {
-  source  = "Azure/avm-res-operationalinsights-workspace/azurerm"
-  version = "~> 0.5"
+resource "azapi_resource" "log_analytics_workspace" {
+  count = local.create_log_analytics_workspace ? 1 : 0
 
-  name                = coalesce(var.log_analytics_workspace.name, "log-${var.name}")
-  location            = var.location
-  resource_group_name = var.resource_group_name
-  enable_telemetry    = var.enable_telemetry
-  tags                = var.log_analytics_workspace.tags != null ? var.log_analytics_workspace.tags : local.tags
+  name      = coalesce(var.log_analytics_workspace.name, "log-${var.name}")
+  location  = var.location
+  parent_id = local.resource_group_id
+  type      = "Microsoft.OperationalInsights/workspaces@2025-02-01"
+  tags      = var.log_analytics_workspace.tags != null ? var.log_analytics_workspace.tags : local.tags
 
-  log_analytics_workspace_sku               = "PerGB2018"
-  log_analytics_workspace_retention_in_days = var.log_analytics_workspace.retention_in_days
+  body = {
+    properties = {
+      retentionInDays = var.log_analytics_workspace.retention_in_days
+      sku = {
+        name = "PerGB2018"
+      }
+    }
+  }
+
+  response_export_values = []
 }
 
-module "insights" {
-  source  = "Azure/avm-res-insights-component/azurerm"
-  version = "~> 0.4"
+resource "azapi_resource" "application_insights" {
+  count = var.application_insights.resource_id == null ? 1 : 0
 
-  name                = coalesce(var.application_insights.name, "appi-${var.name}")
-  location            = var.location
-  resource_group_name = var.resource_group_name
-  enable_telemetry    = var.enable_telemetry
-  tags                = var.application_insights.tags != null ? var.application_insights.tags : local.tags
+  name      = coalesce(var.application_insights.name, "appi-${var.name}")
+  location  = var.location
+  parent_id = local.resource_group_id
+  type      = "Microsoft.Insights/components@2020-02-02"
+  tags      = var.application_insights.tags != null ? var.application_insights.tags : local.tags
 
-  application_type = "web"
-  workspace_id     = module.workspace.resource_id
+  body = {
+    kind = "web"
+    properties = {
+      Application_Type    = "web"
+      WorkspaceResourceId = local.log_analytics_workspace_resource_id
+    }
+  }
+
+  response_export_values = ["properties.ConnectionString", "properties.InstrumentationKey"]
+}
+
+data "azapi_resource" "application_insights" {
+  count = var.application_insights.resource_id != null ? 1 : 0
+
+  type                   = "Microsoft.Insights/components@2020-02-02"
+  resource_id            = var.application_insights.resource_id
+  response_export_values = ["properties.ConnectionString", "properties.InstrumentationKey"]
 }
 
 module "this" {
@@ -107,17 +136,18 @@ module "this" {
   maximum_instance_count = var.maximum_instance_count
 
   https_only                    = true
-  public_network_access_enabled = coalesce(var.public_network_access_enabled, true)
+  public_network_access_enabled = local.function_public_network_access_enabled
   virtual_network_subnet_id     = var.virtual_network_subnet_id
 
-  storage_account_name          = local.storage_account_name
-  storage_container_type        = "blobContainer"
-  storage_container_endpoint    = local.storage_container_endpoint_url
-  storage_authentication_type   = "SystemAssignedIdentity"
-  storage_uses_managed_identity = true
+  storage_account_name              = local.storage_account_name
+  storage_container_type            = "blobContainer"
+  storage_container_endpoint        = local.storage_container_endpoint_url
+  storage_authentication_type       = local.storage_authentication_type
+  storage_user_assigned_identity_id = var.storage_managed_identity.user_assigned_resource_id
+  storage_uses_managed_identity     = true
 
-  application_insights_connection_string = module.insights.connection_string
-  application_insights_key               = module.insights.instrumentation_key
+  application_insights_connection_string = local.application_insights_connection_string
+  application_insights_key               = local.application_insights_instrumentation_key
 
   app_settings = local.function_app_settings
 
@@ -131,10 +161,10 @@ module "this" {
   site_config = {
     minimum_tls_version               = "1.2"
     scm_minimum_tls_version           = "1.2"
-    scm_use_main_ip_restriction       = var.site_config.scm_use_main_ip_restriction
-    vnet_route_all_enabled            = var.site_config.vnet_route_all_enabled
-    ip_restriction_default_action     = var.site_config.ip_restriction_default_action
-    scm_ip_restriction_default_action = var.site_config.scm_ip_restriction_default_action
+    scm_use_main_ip_restriction       = local.site_config_scm_use_main_ip_restriction
+    vnet_route_all_enabled            = local.site_config_vnet_route_all_enabled
+    ip_restriction_default_action     = local.site_config_ip_restriction_default_action
+    scm_ip_restriction_default_action = local.site_config_scm_ip_restriction_default_action
     ip_restriction                    = var.site_config.ip_restriction
     scm_ip_restriction                = var.site_config.scm_ip_restriction
   }
@@ -144,8 +174,39 @@ module "this" {
   private_endpoints                       = var.private_endpoints
 
   role_assignments    = var.role_assignments
-  diagnostic_settings = var.diagnostic_settings
+  diagnostic_settings = local.function_app_diagnostic_settings
   lock                = var.lock
+
+  depends_on = [
+    module.storage,
+  ]
+}
+
+data "azapi_resource" "storage_user_assigned_identity" {
+  count = local.storage_uses_user_assigned_identity ? 1 : 0
+
+  type                   = "Microsoft.ManagedIdentity/userAssignedIdentities@2023-01-31"
+  resource_id            = var.storage_managed_identity.user_assigned_resource_id
+  response_export_values = ["properties.clientId", "properties.principalId"]
+}
+
+resource "azapi_resource" "storage_account_function_app_role_assignment" {
+  for_each = local.storage_role_definition_ids
+
+  name      = uuidv5("url", "${module.storage.resource_id}/roleAssignments/${each.key}/${local.storage_managed_identity_principal_id}")
+  parent_id = module.storage.resource_id
+  type      = "Microsoft.Authorization/roleAssignments@2022-04-01"
+
+  body = {
+    properties = {
+      principalId      = local.storage_managed_identity_principal_id
+      principalType    = "ServicePrincipal"
+      roleDefinitionId = each.value
+    }
+  }
+
+  ignore_null_property   = true
+  response_export_values = []
 }
 
 resource "azapi_resource" "deployment" {
@@ -163,7 +224,7 @@ resource "azapi_resource" "deployment" {
   schema_validation_enabled = false
 
   depends_on = [
-    module.storage,
+    azapi_resource.storage_account_function_app_role_assignment,
   ]
 }
 
@@ -179,47 +240,4 @@ data "azapi_resource_action" "function_host_keys" {
   depends_on = [
     azapi_resource.deployment,
   ]
-}
-
-check "auth_settings_secret" {
-  assert {
-    condition     = var.auth_settings == null || var.auth_settings_client_secret != null
-    error_message = "auth_settings_client_secret must be set when auth_settings is configured."
-  }
-}
-
-check "managed_identity" {
-  assert {
-    condition     = var.managed_identities.system_assigned == true
-    error_message = "managed_identities.system_assigned must be true because the Function App uses its system-assigned managed identity to access the deployment storage account."
-  }
-
-  assert {
-    condition     = var.managed_identities.system_assigned || var.acmebot.managed_identity_client_id != null
-    error_message = "acmebot.managed_identity_client_id must be set when managed_identities.system_assigned is false so Acmebot can authenticate with the attached user-assigned managed identity."
-  }
-
-  assert {
-    condition     = var.acmebot.managed_identity_client_id == null || length(var.managed_identities.user_assigned_resource_ids) > 0
-    error_message = "acmebot.managed_identity_client_id can only be set when at least one user-assigned managed identity is attached through managed_identities.user_assigned_resource_ids."
-  }
-}
-
-check "storage_private_endpoints" {
-  assert {
-    condition     = length(var.storage_account.private_endpoints) == 0 || var.virtual_network_subnet_id != null
-    error_message = "virtual_network_subnet_id must be set when storage_account.private_endpoints is set so the Function App can route Storage Account traffic through the virtual network."
-  }
-
-  assert {
-    condition     = var.virtual_network_subnet_id == null || length(var.storage_account.private_endpoints) > 0
-    error_message = "storage_account.private_endpoints must be set when virtual_network_subnet_id is set so the Function App can access its Storage Account through Private Endpoint."
-  }
-
-  assert {
-    condition = var.virtual_network_subnet_id == null ? true : alltrue([
-      for private_endpoint in values(var.storage_account.private_endpoints) : lower(private_endpoint.subnet_resource_id) != lower(var.virtual_network_subnet_id)
-    ])
-    error_message = "storage_account.private_endpoints[*].subnet_resource_id must be different from virtual_network_subnet_id because the Flex Consumption VNET integration subnet cannot be used for private endpoints."
-  }
 }
