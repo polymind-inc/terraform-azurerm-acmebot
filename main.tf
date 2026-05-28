@@ -11,6 +11,7 @@ resource "azurerm_storage_account" "storage" {
   account_replication_type        = var.storage_account.account_replication_type
   allow_nested_items_to_be_public = false
   min_tls_version                 = "TLS1_2"
+  public_network_access_enabled   = var.storage_account.public_network_access_enabled
 }
 
 resource "random_string" "deployment_container_suffix" {
@@ -25,6 +26,83 @@ resource "azurerm_storage_container" "deployment" {
   name                  = coalesce(var.deployment_container.name, local.deployment_container_name)
   storage_account_id    = azurerm_storage_account.storage.id
   container_access_type = "private"
+}
+
+resource "azurerm_private_endpoint" "storage" {
+  for_each = {
+    for key, private_endpoint in var.storage_account.private_endpoints : key => private_endpoint
+    if var.private_endpoints_manage_dns_zone_group
+  }
+
+  name                          = coalesce(each.value.name, "pep-${local.storage_account_name}-${each.key}")
+  resource_group_name           = coalesce(each.value.resource_group_name, var.resource_group_name)
+  location                      = coalesce(each.value.location, var.location)
+  subnet_id                     = each.value.subnet_resource_id
+  custom_network_interface_name = each.value.network_interface_name
+  tags                          = each.value.tags != null ? each.value.tags : local.tags
+
+  private_service_connection {
+    name                           = coalesce(each.value.private_service_connection_name, "psc-${local.storage_account_name}-${each.key}")
+    private_connection_resource_id = azurerm_storage_account.storage.id
+    is_manual_connection           = false
+    subresource_names              = [each.value.subresource_name]
+  }
+
+  dynamic "private_dns_zone_group" {
+    for_each = length(each.value.private_dns_zone_resource_ids) > 0 ? [each.value] : []
+
+    content {
+      name                 = each.value.private_dns_zone_group_name
+      private_dns_zone_ids = private_dns_zone_group.value.private_dns_zone_resource_ids
+    }
+  }
+
+  dynamic "ip_configuration" {
+    for_each = each.value.ip_configurations
+
+    content {
+      name               = ip_configuration.value.name
+      private_ip_address = ip_configuration.value.private_ip_address
+      member_name        = coalesce(ip_configuration.value.member_name, each.value.subresource_name)
+      subresource_name   = each.value.subresource_name
+    }
+  }
+}
+
+resource "azurerm_private_endpoint" "storage_unmanaged_dns_zone_groups" {
+  for_each = {
+    for key, private_endpoint in var.storage_account.private_endpoints : key => private_endpoint
+    if !var.private_endpoints_manage_dns_zone_group
+  }
+
+  name                          = coalesce(each.value.name, "pep-${local.storage_account_name}-${each.key}")
+  resource_group_name           = coalesce(each.value.resource_group_name, var.resource_group_name)
+  location                      = coalesce(each.value.location, var.location)
+  subnet_id                     = each.value.subnet_resource_id
+  custom_network_interface_name = each.value.network_interface_name
+  tags                          = each.value.tags != null ? each.value.tags : local.tags
+
+  private_service_connection {
+    name                           = coalesce(each.value.private_service_connection_name, "psc-${local.storage_account_name}-${each.key}")
+    private_connection_resource_id = azurerm_storage_account.storage.id
+    is_manual_connection           = false
+    subresource_names              = [each.value.subresource_name]
+  }
+
+  dynamic "ip_configuration" {
+    for_each = each.value.ip_configurations
+
+    content {
+      name               = ip_configuration.value.name
+      private_ip_address = ip_configuration.value.private_ip_address
+      member_name        = coalesce(ip_configuration.value.member_name, each.value.subresource_name)
+      subresource_name   = each.value.subresource_name
+    }
+  }
+
+  lifecycle {
+    ignore_changes = [private_dns_zone_group]
+  }
 }
 
 resource "azurerm_service_plan" "serverfarm" {
@@ -167,7 +245,29 @@ resource "azurerm_function_app_flex_consumption" "function" {
     }
   }
 
+  depends_on = [
+    azurerm_private_endpoint.storage,
+    azurerm_private_endpoint.storage_unmanaged_dns_zone_groups
+  ]
+
   lifecycle {
+    precondition {
+      condition     = length(var.storage_account.private_endpoints) == 0 || var.virtual_network_subnet_id != null
+      error_message = "virtual_network_subnet_id must be set when storage_account.private_endpoints is set so the Function App can route Storage Account traffic through the virtual network."
+    }
+
+    precondition {
+      condition     = var.virtual_network_subnet_id == null || length(var.storage_account.private_endpoints) > 0
+      error_message = "storage_account.private_endpoints must be set when virtual_network_subnet_id is set so the Function App can access its Storage Account through Private Endpoint."
+    }
+
+    precondition {
+      condition = var.virtual_network_subnet_id == null ? true : alltrue([
+        for private_endpoint in values(var.storage_account.private_endpoints) : lower(private_endpoint.subnet_resource_id) != lower(var.virtual_network_subnet_id)
+      ])
+      error_message = "storage_account.private_endpoints[*].subnet_resource_id must be different from virtual_network_subnet_id because the Flex Consumption VNET integration subnet cannot be used for private endpoints."
+    }
+
     precondition {
       condition     = var.managed_identities.system_assigned || var.acmebot.managed_identity_client_id != null
       error_message = "acmebot.managed_identity_client_id must be set when managed_identities.system_assigned is false so Acmebot can authenticate with the attached user-assigned managed identity."
@@ -301,6 +401,13 @@ resource "azurerm_private_endpoint_application_security_group_association" "func
   application_security_group_id = each.value.application_security_group_resource_id
 }
 
+resource "azurerm_private_endpoint_application_security_group_association" "storage_account" {
+  for_each = local.storage_account_private_endpoint_application_security_group_associations
+
+  private_endpoint_id           = local.storage_account_private_endpoint_resource_ids[each.value.private_endpoint_key]
+  application_security_group_id = each.value.application_security_group_resource_id
+}
+
 resource "azurerm_role_assignment" "function_app" {
   for_each = var.role_assignments
 
@@ -345,6 +452,21 @@ resource "azurerm_role_assignment" "private_endpoint" {
   skip_service_principal_aad_check       = each.value.skip_service_principal_aad_check
 }
 
+resource "azurerm_role_assignment" "storage_account_private_endpoint" {
+  for_each = local.storage_account_private_endpoint_role_assignments
+
+  scope                                  = local.storage_account_private_endpoint_resource_ids[each.value.private_endpoint_key]
+  role_definition_id                     = length(regexall(local.role_definition_resource_substring, lower(each.value.role_definition_id_or_name))) > 0 ? each.value.role_definition_id_or_name : null
+  role_definition_name                   = length(regexall(local.role_definition_resource_substring, lower(each.value.role_definition_id_or_name))) > 0 ? null : each.value.role_definition_id_or_name
+  principal_id                           = each.value.principal_id
+  description                            = each.value.description
+  condition                              = each.value.condition
+  condition_version                      = each.value.condition_version
+  delegated_managed_identity_resource_id = each.value.delegated_managed_identity_resource_id
+  principal_type                         = each.value.principal_type
+  skip_service_principal_aad_check       = each.value.skip_service_principal_aad_check
+}
+
 resource "azurerm_management_lock" "private_endpoint" {
   for_each = local.private_endpoint_locks
 
@@ -356,6 +478,20 @@ resource "azurerm_management_lock" "private_endpoint" {
   depends_on = [
     azurerm_private_endpoint_application_security_group_association.function_app,
     azurerm_role_assignment.private_endpoint
+  ]
+}
+
+resource "azurerm_management_lock" "storage_account_private_endpoint" {
+  for_each = local.storage_account_private_endpoint_locks
+
+  name       = coalesce(each.value.name, "lock-${each.value.kind}")
+  scope      = local.storage_account_private_endpoint_resource_ids[each.key]
+  lock_level = each.value.kind
+  notes      = each.value.kind == "CanNotDelete" ? "Cannot delete the private endpoint or its child resources." : "Cannot delete or modify the private endpoint or its child resources."
+
+  depends_on = [
+    azurerm_private_endpoint_application_security_group_association.storage_account,
+    azurerm_role_assignment.storage_account_private_endpoint
   ]
 }
 

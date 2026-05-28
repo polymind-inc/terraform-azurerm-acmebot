@@ -38,6 +38,26 @@ output "private_endpoint_names" {
   description = "The names of the private endpoints."
 }
 
+output "storage_account_private_endpoints" {
+  value = {
+    for key in keys(local.storage_account_private_endpoint_resource_ids) : key => {
+      name        = local.storage_account_private_endpoint_names[key]
+      resource_id = local.storage_account_private_endpoint_resource_ids[key]
+    }
+  }
+  description = "A map of the Storage Account private endpoints created."
+}
+
+output "storage_account_private_endpoint_resource_ids" {
+  value       = local.storage_account_private_endpoint_resource_ids
+  description = "The resource IDs of the Storage Account private endpoints."
+}
+
+output "storage_account_private_endpoint_names" {
+  value       = local.storage_account_private_endpoint_names
+  description = "The names of the Storage Account private endpoints."
+}
+
 output "api_key" {
   value       = var.export_api_key ? data.azurerm_function_app_host_keys.function[0].default_function_key : null
   description = "Created Default Functions API Key. Null unless export_api_key is enabled."
