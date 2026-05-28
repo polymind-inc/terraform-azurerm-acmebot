@@ -904,11 +904,12 @@ variable "maximum_instance_count" {
 
 variable "instance_memory_in_mb" {
   type        = number
-  description = "Optional memory size in MB for Flex Consumption instances. Supported values are 512, 2048, and 4096."
-  default     = null
+  description = "Memory size in MB for Flex Consumption instances. Supported values are 512, 2048, and 4096. Defaults to 2048."
+  default     = 2048
+  nullable    = false
 
   validation {
-    condition     = var.instance_memory_in_mb == null || contains([512, 2048, 4096], var.instance_memory_in_mb)
+    condition     = contains([512, 2048, 4096], var.instance_memory_in_mb)
     error_message = "instance_memory_in_mb must be one of 512, 2048, or 4096."
   }
 }
@@ -964,9 +965,6 @@ variable "acmebot" {
       dns_made_easy = optional(object({
         api_key    = string
         secret_key = string
-      }), null)
-      gandi = optional(object({
-        api_key = string
       }), null)
       gandi_live_dns = optional(object({
         api_key = string
@@ -1025,7 +1023,7 @@ Controls Acmebot workload configuration. This object is sensitive because DNS pr
 - `app_role_required` - (Optional) Whether additional app role assignment is required during Microsoft Entra authentication. Defaults to `false`.
 - `managed_identity_client_id` - (Optional) The client ID of the user-assigned managed identity Acmebot should use. When set, the identity must also be attached through `managed_identities.user_assigned_resource_ids`.
 - `external_account_binding` - (Optional) External Account Binding settings for ACME providers that require account binding.
-- `dns_providers` - (Optional) DNS provider settings for Acmebot. Supported providers are `akamai`, `azure_dns`, `azure_private_dns`, `cloudflare`, `custom_dns`, `dns_made_easy`, `gandi_live_dns`, `go_daddy`, `google_dns`, `ionos_dns`, `ovh`, `power_dns`, `regfish`, `route_53`, `trans_ip`, and `united_domains`. `gandi` is kept as a deprecated alias for `gandi_live_dns`.
+- `dns_providers` - (Optional) DNS provider settings for Acmebot. Supported providers are `akamai`, `azure_dns`, `azure_private_dns`, `cloudflare`, `custom_dns`, `dns_made_easy`, `gandi_live_dns`, `go_daddy`, `google_dns`, `ionos_dns`, `ovh`, `power_dns`, `regfish`, `route_53`, `trans_ip`, and `united_domains`.
 DESCRIPTION
   nullable    = false
   sensitive   = true
@@ -1071,11 +1069,6 @@ DESCRIPTION
   }
 
   validation {
-    condition     = var.acmebot.dns_providers.gandi == null || var.acmebot.dns_providers.gandi_live_dns == null
-    error_message = "Only one of acmebot.dns_providers.gandi or acmebot.dns_providers.gandi_live_dns can be set."
-  }
-
-  validation {
     condition = length(compact([
       var.acmebot.dns_providers.akamai != null ? "akamai" : "",
       var.acmebot.dns_providers.azure_dns != null ? "azure_dns" : "",
@@ -1083,7 +1076,6 @@ DESCRIPTION
       var.acmebot.dns_providers.cloudflare != null ? "cloudflare" : "",
       var.acmebot.dns_providers.custom_dns != null ? "custom_dns" : "",
       var.acmebot.dns_providers.dns_made_easy != null ? "dns_made_easy" : "",
-      var.acmebot.dns_providers.gandi != null ? "gandi" : "",
       var.acmebot.dns_providers.gandi_live_dns != null ? "gandi_live_dns" : "",
       var.acmebot.dns_providers.go_daddy != null ? "go_daddy" : "",
       var.acmebot.dns_providers.google_dns != null ? "google_dns" : "",

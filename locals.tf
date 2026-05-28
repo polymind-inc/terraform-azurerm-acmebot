@@ -47,16 +47,14 @@ locals {
   acmebot_major_version = "v${split(".", var.acmebot.version)[0]}"
   acmebot_package_uri   = "https://stacmebotprod.blob.core.windows.net/acmebot/${local.acmebot_major_version}/${var.acmebot.version}.zip"
 
-  create_log_analytics_workspace = var.log_analytics_workspace.resource_id == null && (
-    var.application_insights.resource_id == null || var.managed_diagnostic_settings_enabled
-  )
-  log_analytics_workspace_resource_id = var.log_analytics_workspace.resource_id != null ? var.log_analytics_workspace.resource_id : (
-    local.create_log_analytics_workspace ? azapi_resource.log_analytics_workspace[0].id : null
+  create_log_analytics_workspace = var.log_analytics_workspace.resource_id == null && var.application_insights.resource_id == null
+  log_analytics_workspace_resource_id = (
+    var.log_analytics_workspace.resource_id != null ? var.log_analytics_workspace.resource_id :
+    local.create_log_analytics_workspace ? azapi_resource.log_analytics_workspace[0].id :
+    data.azapi_resource.application_insights[0].output.properties.WorkspaceResourceId
   )
   application_insights_connection_string   = var.application_insights.resource_id != null ? data.azapi_resource.application_insights[0].output.properties.ConnectionString : azapi_resource.application_insights[0].output.properties.ConnectionString
   application_insights_instrumentation_key = var.application_insights.resource_id != null ? data.azapi_resource.application_insights[0].output.properties.InstrumentationKey : azapi_resource.application_insights[0].output.properties.InstrumentationKey
-
-  gandi_live_dns_options = var.acmebot.dns_providers.gandi_live_dns != null ? var.acmebot.dns_providers.gandi_live_dns : var.acmebot.dns_providers.gandi
 
   acmebot_use_system_name_server = var.acmebot.use_system_name_server != null ? var.acmebot.use_system_name_server : (
     var.virtual_network_subnet_id != null || var.acmebot.environment != "AzureCloud"
@@ -102,8 +100,8 @@ locals {
       "Acmebot__DnsMadeEasy__ApiKey"    = var.acmebot.dns_providers.dns_made_easy.api_key
       "Acmebot__DnsMadeEasy__SecretKey" = var.acmebot.dns_providers.dns_made_easy.secret_key
     } : {},
-    local.gandi_live_dns_options != null ? {
-      "Acmebot__GandiLiveDns__ApiKey" = local.gandi_live_dns_options.api_key
+    var.acmebot.dns_providers.gandi_live_dns != null ? {
+      "Acmebot__GandiLiveDns__ApiKey" = var.acmebot.dns_providers.gandi_live_dns.api_key
     } : {},
     var.acmebot.dns_providers.go_daddy != null ? {
       "Acmebot__GoDaddy__ApiKey"    = var.acmebot.dns_providers.go_daddy.api_key

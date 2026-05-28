@@ -150,7 +150,7 @@ module "acmebot" {
 ### Operations
 
 - Default diagnostic settings are created for the Function App and Storage Account resources to the module-managed or supplied Log Analytics workspace. Set `managed_diagnostic_settings_enabled = false` to manage diagnostics externally.
-- Set `log_analytics_workspace.resource_id` and/or `application_insights.resource_id` to use existing monitoring resources instead of creating new ones. When Application Insights is supplied and managed diagnostics are disabled, the module does not create a Log Analytics workspace unless one is explicitly needed elsewhere.
+- Set `log_analytics_workspace.resource_id` and/or `application_insights.resource_id` to use existing monitoring resources instead of creating new ones. The module creates a Log Analytics workspace only when it also creates Application Insights. When an existing `application_insights.resource_id` is supplied without `log_analytics_workspace.resource_id`, managed diagnostic settings are sent to the Log Analytics workspace backing that Application Insights component instead of creating a new workspace. Set `log_analytics_workspace.resource_id` to route diagnostics elsewhere.
 - Child resources inherit `var.tags` by default, support child-specific tag overrides where Azure supports tags, and use CAF-aligned default name prefixes where applicable.
 - Child resource settings can be overridden with `storage_account`, `deployment_container`, `service_plan`, `log_analytics_workspace`, and `application_insights`.
 - AVM-style `diagnostic_settings`, `lock`, `managed_identities`, `role_assignments`, and `private_endpoints` inputs can apply diagnostic settings, resource locks, managed identities, RBAC assignments, and Private Endpoints to the Function App.

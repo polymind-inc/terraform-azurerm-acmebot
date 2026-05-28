@@ -151,7 +151,7 @@ module "acmebot" {
 ### Operations
 
 - Default diagnostic settings are created for the Function App and Storage Account resources to the module-managed or supplied Log Analytics workspace. Set `managed_diagnostic_settings_enabled = false` to manage diagnostics externally.
-- Set `log_analytics_workspace.resource_id` and/or `application_insights.resource_id` to use existing monitoring resources instead of creating new ones. When Application Insights is supplied and managed diagnostics are disabled, the module does not create a Log Analytics workspace unless one is explicitly needed elsewhere.
+- Set `log_analytics_workspace.resource_id` and/or `application_insights.resource_id` to use existing monitoring resources instead of creating new ones. The module creates a Log Analytics workspace only when it also creates Application Insights. When an existing `application_insights.resource_id` is supplied without `log_analytics_workspace.resource_id`, managed diagnostic settings are sent to the Log Analytics workspace backing that Application Insights component instead of creating a new workspace. Set `log_analytics_workspace.resource_id` to route diagnostics elsewhere.
 - Child resources inherit `var.tags` by default, support child-specific tag overrides where Azure supports tags, and use CAF-aligned default name prefixes where applicable.
 - Child resource settings can be overridden with `storage_account`, `deployment_container`, `service_plan`, `log_analytics_workspace`, and `application_insights`.
 - AVM-style `diagnostic_settings`, `lock`, `managed_identities`, `role_assignments`, and `private_endpoints` inputs can apply diagnostic settings, resource locks, managed identities, RBAC assignments, and Private Endpoints to the Function App.
@@ -213,7 +213,7 @@ Description: Controls Acmebot workload configuration. This object is sensitive b
 - `app_role_required` - (Optional) Whether additional app role assignment is required during Microsoft Entra authentication. Defaults to `false`.
 - `managed_identity_client_id` - (Optional) The client ID of the user-assigned managed identity Acmebot should use. When set, the identity must also be attached through `managed_identities.user_assigned_resource_ids`.
 - `external_account_binding` - (Optional) External Account Binding settings for ACME providers that require account binding.
-- `dns_providers` - (Optional) DNS provider settings for Acmebot. Supported providers are `akamai`, `azure_dns`, `azure_private_dns`, `cloudflare`, `custom_dns`, `dns_made_easy`, `gandi_live_dns`, `go_daddy`, `google_dns`, `ionos_dns`, `ovh`, `power_dns`, `regfish`, `route_53`, `trans_ip`, and `united_domains`. `gandi` is kept as a deprecated alias for `gandi_live_dns`.
+- `dns_providers` - (Optional) DNS provider settings for Acmebot. Supported providers are `akamai`, `azure_dns`, `azure_private_dns`, `cloudflare`, `custom_dns`, `dns_made_easy`, `gandi_live_dns`, `go_daddy`, `google_dns`, `ionos_dns`, `ovh`, `power_dns`, `regfish`, `route_53`, `trans_ip`, and `united_domains`.
 
 Type:
 
@@ -261,9 +261,6 @@ object({
       dns_made_easy = optional(object({
         api_key    = string
         secret_key = string
-      }), null)
-      gandi = optional(object({
-        api_key = string
       }), null)
       gandi_live_dns = optional(object({
         api_key = string
@@ -456,11 +453,11 @@ Default: `false`
 
 ### <a name="input_instance_memory_in_mb"></a> [instance\_memory\_in\_mb](#input\_instance\_memory\_in\_mb)
 
-Description: Optional memory size in MB for Flex Consumption instances. Supported values are 512, 2048, and 4096.
+Description: Memory size in MB for Flex Consumption instances. Supported values are 512, 2048, and 4096. Defaults to 2048.
 
 Type: `number`
 
-Default: `null`
+Default: `2048`
 
 ### <a name="input_lock"></a> [lock](#input\_lock)
 
