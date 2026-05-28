@@ -151,13 +151,22 @@ module "acmebot" {
   name                   = "func-acmebot-${random_string.random.result}"
   resource_group_name    = azurerm_resource_group.default.name
   location               = azurerm_resource_group.default.location
-  mail_address           = "YOUR-EMAIL-ADDRESS"
-  vault_uri              = azurerm_key_vault.default.vault_uri
-  acmebot_version        = "5.0.1"
   maximum_instance_count = 50
   instance_memory_in_mb  = 2048
   tags = {
     workload = "acmebot"
+  }
+
+  acmebot = {
+    version      = "5.0.1"
+    mail_address = "YOUR-EMAIL-ADDRESS"
+    vault_uri    = azurerm_key_vault.default.vault_uri
+
+    dns_providers = {
+      azure_dns = {
+        subscription_id = data.azurerm_client_config.current.subscription_id
+      }
+    }
   }
 
   managed_identities = {
@@ -170,7 +179,8 @@ module "acmebot" {
   #   system_assigned            = false
   #   user_assigned_resource_ids = [azurerm_user_assigned_identity.acmebot.id]
   # }
-  # acmebot_managed_identity_client_id = azurerm_user_assigned_identity.acmebot.client_id
+  # Add this to the acmebot object above:
+  # managed_identity_client_id = azurerm_user_assigned_identity.acmebot.client_id
   #
   # virtual_network_subnet_id = "/subscriptions/xxxx/resourceGroups/rg-network/providers/Microsoft.Network/virtualNetworks/vnet-acmebot/subnets/snet-acmebot"
   #
@@ -199,10 +209,6 @@ module "acmebot" {
   #     ]
   #   }
   # }
-
-  azure_dns = {
-    subscription_id = data.azurerm_client_config.current.subscription_id
-  }
 
   auth_settings = {
     enabled = true

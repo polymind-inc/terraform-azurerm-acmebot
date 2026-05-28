@@ -4,11 +4,11 @@ resource "azurerm_storage_account" "storage" {
   name                = local.storage_account_name
   resource_group_name = var.resource_group_name
   location            = var.location
-  tags                = local.tags
+  tags                = var.storage_account.tags != null ? var.storage_account.tags : local.tags
 
   account_kind                    = "StorageV2"
   account_tier                    = "Standard"
-  account_replication_type        = "LRS"
+  account_replication_type        = var.storage_account.account_replication_type
   allow_nested_items_to_be_public = false
   min_tls_version                 = "TLS1_2"
 }
@@ -22,36 +22,36 @@ resource "random_string" "deployment_container_suffix" {
 }
 
 resource "azurerm_storage_container" "deployment" {
-  name                  = local.deployment_container_name
+  name                  = coalesce(var.deployment_container.name, local.deployment_container_name)
   storage_account_id    = azurerm_storage_account.storage.id
   container_access_type = "private"
 }
 
 resource "azurerm_service_plan" "serverfarm" {
-  name                = coalesce(var.service_plan_name, "asp-${var.name}")
+  name                = coalesce(var.service_plan.name, "asp-${var.name}")
   resource_group_name = var.resource_group_name
   location            = var.location
-  tags                = local.tags
+  tags                = var.service_plan.tags != null ? var.service_plan.tags : local.tags
 
   os_type  = "Linux"
   sku_name = "FC1"
 }
 
 resource "azurerm_log_analytics_workspace" "workspace" {
-  name                = coalesce(var.log_analytics_workspace_name, "log-${var.name}")
+  name                = coalesce(var.log_analytics_workspace.name, "log-${var.name}")
   resource_group_name = var.resource_group_name
   location            = var.location
-  tags                = local.tags
+  tags                = var.log_analytics_workspace.tags != null ? var.log_analytics_workspace.tags : local.tags
 
   sku               = "PerGB2018"
-  retention_in_days = 30
+  retention_in_days = var.log_analytics_workspace.retention_in_days
 }
 
 resource "azurerm_application_insights" "insights" {
-  name                = coalesce(var.application_insights_name, "appi-${var.name}")
+  name                = coalesce(var.application_insights.name, "appi-${var.name}")
   resource_group_name = var.resource_group_name
   location            = var.location
-  tags                = local.tags
+  tags                = var.application_insights.tags != null ? var.application_insights.tags : local.tags
 
   application_type = "web"
   workspace_id     = azurerm_log_analytics_workspace.workspace.id
@@ -169,13 +169,13 @@ resource "azurerm_function_app_flex_consumption" "function" {
 
   lifecycle {
     precondition {
-      condition     = var.managed_identities.system_assigned || var.acmebot_managed_identity_client_id != null
-      error_message = "acmebot_managed_identity_client_id must be set when managed_identities.system_assigned is false so Acmebot can authenticate with the attached user-assigned managed identity."
+      condition     = var.managed_identities.system_assigned || var.acmebot.managed_identity_client_id != null
+      error_message = "acmebot.managed_identity_client_id must be set when managed_identities.system_assigned is false so Acmebot can authenticate with the attached user-assigned managed identity."
     }
 
     precondition {
-      condition     = var.acmebot_managed_identity_client_id == null || length(var.managed_identities.user_assigned_resource_ids) > 0
-      error_message = "acmebot_managed_identity_client_id can only be set when at least one user-assigned managed identity is attached through managed_identities.user_assigned_resource_ids."
+      condition     = var.acmebot.managed_identity_client_id == null || length(var.managed_identities.user_assigned_resource_ids) > 0
+      error_message = "acmebot.managed_identity_client_id can only be set when at least one user-assigned managed identity is attached through managed_identities.user_assigned_resource_ids."
     }
   }
 }
