@@ -135,7 +135,7 @@ resource "azurerm_application_insights" "insights" {
   workspace_id     = azurerm_log_analytics_workspace.workspace.id
 }
 
-resource "azurerm_function_app_flex_consumption" "function" {
+resource "azurerm_function_app_flex_consumption" "this" {
   name                = local.function_app_name
   resource_group_name = var.resource_group_name
   location            = var.location
@@ -284,7 +284,7 @@ resource "azurerm_monitor_diagnostic_setting" "function_app" {
   for_each = var.diagnostic_settings
 
   name                           = each.value.name != null ? each.value.name : "diag-${local.function_app_name}"
-  target_resource_id             = azurerm_function_app_flex_consumption.function.id
+  target_resource_id             = azurerm_function_app_flex_consumption.this.id
   eventhub_authorization_rule_id = each.value.event_hub_authorization_rule_resource_id
   eventhub_name                  = each.value.event_hub_name
   log_analytics_destination_type = each.value.log_analytics_destination_type
@@ -332,13 +332,13 @@ resource "azurerm_private_endpoint" "function_app" {
 
   private_service_connection {
     name                           = coalesce(each.value.private_service_connection_name, "psc-${local.function_app_name}-${each.key}")
-    private_connection_resource_id = azurerm_function_app_flex_consumption.function.id
+    private_connection_resource_id = azurerm_function_app_flex_consumption.this.id
     is_manual_connection           = false
     subresource_names              = [each.value.subresource_name]
   }
 
   dynamic "private_dns_zone_group" {
-    for_each = var.private_endpoints_manage_dns_zone_group && length(each.value.private_dns_zone_resource_ids) > 0 ? [each.value] : []
+    for_each = length(each.value.private_dns_zone_resource_ids) > 0 ? [each.value] : []
 
     content {
       name                 = private_dns_zone_group.value.private_dns_zone_group_name
@@ -373,7 +373,7 @@ resource "azurerm_private_endpoint" "function_app_unmanaged_dns_zone_groups" {
 
   private_service_connection {
     name                           = coalesce(each.value.private_service_connection_name, "psc-${local.function_app_name}-${each.key}")
-    private_connection_resource_id = azurerm_function_app_flex_consumption.function.id
+    private_connection_resource_id = azurerm_function_app_flex_consumption.this.id
     is_manual_connection           = false
     subresource_names              = [each.value.subresource_name]
   }
@@ -411,7 +411,7 @@ resource "azurerm_private_endpoint_application_security_group_association" "stor
 resource "azurerm_role_assignment" "function_app" {
   for_each = var.role_assignments
 
-  scope                                  = azurerm_function_app_flex_consumption.function.id
+  scope                                  = azurerm_function_app_flex_consumption.this.id
   role_definition_id                     = length(regexall(local.role_definition_resource_substring, lower(each.value.role_definition_id_or_name))) > 0 ? each.value.role_definition_id_or_name : null
   role_definition_name                   = length(regexall(local.role_definition_resource_substring, lower(each.value.role_definition_id_or_name))) > 0 ? null : each.value.role_definition_id_or_name
   principal_id                           = each.value.principal_id
@@ -427,7 +427,7 @@ resource "azurerm_management_lock" "function_app" {
   count = var.lock != null ? 1 : 0
 
   name       = coalesce(var.lock.name, "lock-${var.lock.kind}")
-  scope      = azurerm_function_app_flex_consumption.function.id
+  scope      = azurerm_function_app_flex_consumption.this.id
   lock_level = var.lock.kind
   notes      = var.lock.kind == "CanNotDelete" ? "Cannot delete the Function App or its child resources." : "Cannot delete or modify the Function App or its child resources."
 
@@ -497,7 +497,7 @@ resource "azurerm_management_lock" "storage_account_private_endpoint" {
 
 resource "azapi_resource" "deployment" {
   name      = "onedeploy"
-  parent_id = azurerm_function_app_flex_consumption.function.id
+  parent_id = azurerm_function_app_flex_consumption.this.id
   type      = "Microsoft.Web/sites/extensions@2025-03-01"
 
   body = {
@@ -510,14 +510,14 @@ resource "azapi_resource" "deployment" {
   schema_validation_enabled = false
 }
 
-data "azurerm_function_app_host_keys" "function" {
+data "azurerm_function_app_host_keys" "this" {
   count = var.export_api_key ? 1 : 0
 
-  name                = azurerm_function_app_flex_consumption.function.name
+  name                = azurerm_function_app_flex_consumption.this.name
   resource_group_name = var.resource_group_name
 
   depends_on = [
-    azurerm_function_app_flex_consumption.function,
+    azurerm_function_app_flex_consumption.this,
     azapi_resource.deployment
   ]
 }

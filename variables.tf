@@ -12,11 +12,23 @@ variable "name" {
 variable "resource_group_name" {
   type        = string
   description = "Resource group name to be added."
+  nullable    = false
+
+  validation {
+    condition     = can(regex("^[-\\w\\._\\(\\)]{1,90}$", var.resource_group_name)) && !endswith(var.resource_group_name, ".")
+    error_message = "resource_group_name must be 1-90 characters; contain only letters, numbers, hyphens, underscores, periods, and parentheses; and must not end with a period."
+  }
 }
 
 variable "location" {
   type        = string
   description = "Azure region to create resources."
+  nullable    = false
+
+  validation {
+    condition     = length(var.location) > 0
+    error_message = "location must not be empty."
+  }
 }
 
 variable "auth_settings" {
@@ -215,6 +227,7 @@ variable "tags" {
   type        = map(string)
   description = "(Optional) Tags of the resource."
   default     = null
+  nullable    = true
 }
 
 variable "site_config" {

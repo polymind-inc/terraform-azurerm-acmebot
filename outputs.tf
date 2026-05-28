@@ -1,20 +1,26 @@
 output "name" {
-  value       = azurerm_function_app_flex_consumption.function.name
+  value       = azurerm_function_app_flex_consumption.this.name
   description = "The name of the Function App."
 }
 
 output "resource_id" {
-  value       = azurerm_function_app_flex_consumption.function.id
+  value       = azurerm_function_app_flex_consumption.this.id
   description = "The resource ID of the Function App."
 }
 
+output "resource" {
+  value       = azurerm_function_app_flex_consumption.this
+  description = "The Function App resource."
+  sensitive   = true
+}
+
 output "system_assigned_mi_principal_id" {
-  value       = try(azurerm_function_app_flex_consumption.function.identity[0].principal_id, null)
+  value       = try(azurerm_function_app_flex_consumption.this.identity[0].principal_id, null)
   description = "The principal ID of the system-assigned managed identity."
 }
 
 output "system_assigned_mi_tenant_id" {
-  value       = try(azurerm_function_app_flex_consumption.function.identity[0].tenant_id, null)
+  value       = try(azurerm_function_app_flex_consumption.this.identity[0].tenant_id, null)
   description = "The tenant ID of the system-assigned managed identity."
 }
 
@@ -59,7 +65,7 @@ output "storage_account_private_endpoint_names" {
 }
 
 output "api_key" {
-  value       = var.export_api_key ? data.azurerm_function_app_host_keys.function[0].default_function_key : null
+  value       = var.export_api_key ? data.azurerm_function_app_host_keys.this[0].default_function_key : null
   description = "Created Default Functions API Key. Null unless export_api_key is enabled."
   sensitive   = true
 }

@@ -139,23 +139,23 @@ module "acmebot" {
 
 The following requirements are needed by this module:
 
-- <a name="requirement_terraform"></a> [terraform](#requirement\_terraform) (>= 1.3.0, < 2.0.0)
+- <a name="requirement_terraform"></a> [terraform](#requirement\_terraform) (>= 1.9.0, < 2.0.0)
 
-- <a name="requirement_azapi"></a> [azapi](#requirement\_azapi) (~> 2.0)
+- <a name="requirement_azapi"></a> [azapi](#requirement\_azapi) (>= 2.0.0, < 3.0.0)
 
-- <a name="requirement_azurerm"></a> [azurerm](#requirement\_azurerm) (~> 4.0)
+- <a name="requirement_azurerm"></a> [azurerm](#requirement\_azurerm) (>= 4.0.0, < 5.0.0)
 
-- <a name="requirement_random"></a> [random](#requirement\_random) (~> 3.0)
+- <a name="requirement_random"></a> [random](#requirement\_random) (>= 3.0.0, < 4.0.0)
 
 ## Providers
 
 The following providers are used by this module:
 
-- <a name="provider_azapi"></a> [azapi](#provider\_azapi) (~> 2.0)
+- <a name="provider_azapi"></a> [azapi](#provider\_azapi) (>= 2.0.0, < 3.0.0)
 
-- <a name="provider_azurerm"></a> [azurerm](#provider\_azurerm) (~> 4.0)
+- <a name="provider_azurerm"></a> [azurerm](#provider\_azurerm) (>= 4.0.0, < 5.0.0)
 
-- <a name="provider_random"></a> [random](#provider\_random) (~> 3.0)
+- <a name="provider_random"></a> [random](#provider\_random) (>= 3.0.0, < 4.0.0)
 
 ## Resources
 
@@ -163,7 +163,7 @@ The following resources are used by this module:
 
 - [azapi_resource.deployment](https://registry.terraform.io/providers/Azure/azapi/latest/docs/resources/resource) (resource)
 - [azurerm_application_insights.insights](https://registry.terraform.io/providers/hashicorp/azurerm/latest/docs/resources/application_insights) (resource)
-- [azurerm_function_app_flex_consumption.function](https://registry.terraform.io/providers/hashicorp/azurerm/latest/docs/resources/function_app_flex_consumption) (resource)
+- [azurerm_function_app_flex_consumption.this](https://registry.terraform.io/providers/hashicorp/azurerm/latest/docs/resources/function_app_flex_consumption) (resource)
 - [azurerm_log_analytics_workspace.workspace](https://registry.terraform.io/providers/hashicorp/azurerm/latest/docs/resources/log_analytics_workspace) (resource)
 - [azurerm_management_lock.function_app](https://registry.terraform.io/providers/hashicorp/azurerm/latest/docs/resources/management_lock) (resource)
 - [azurerm_management_lock.private_endpoint](https://registry.terraform.io/providers/hashicorp/azurerm/latest/docs/resources/management_lock) (resource)
@@ -183,7 +183,7 @@ The following resources are used by this module:
 - [azurerm_storage_container.deployment](https://registry.terraform.io/providers/hashicorp/azurerm/latest/docs/resources/storage_container) (resource)
 - [random_string.deployment_container_suffix](https://registry.terraform.io/providers/hashicorp/random/latest/docs/resources/string) (resource)
 - [azurerm_client_config.current](https://registry.terraform.io/providers/hashicorp/azurerm/latest/docs/data-sources/client_config) (data source)
-- [azurerm_function_app_host_keys.function](https://registry.terraform.io/providers/hashicorp/azurerm/latest/docs/data-sources/function_app_host_keys) (data source)
+- [azurerm_function_app_host_keys.this](https://registry.terraform.io/providers/hashicorp/azurerm/latest/docs/data-sources/function_app_host_keys) (data source)
 
 <!-- markdownlint-disable MD013 -->
 ## Required Inputs
@@ -754,6 +754,10 @@ Description: The resource IDs of the private endpoints.
 ### <a name="output_private_endpoints"></a> [private\_endpoints](#output\_private\_endpoints)
 
 Description: A map of the private endpoints created.
+
+### <a name="output_resource"></a> [resource](#output\_resource)
+
+Description: The Function App resource.
 
 ### <a name="output_resource_id"></a> [resource\_id](#output\_resource\_id)
 

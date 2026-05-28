@@ -146,7 +146,7 @@ resource "azurerm_role_assignment" "default" {
 }
 
 module "acmebot" {
-  source = "../"
+  source = "../../"
 
   name                   = "func-acmebot-${random_string.random.result}"
   resource_group_name    = azurerm_resource_group.default.name
