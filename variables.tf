@@ -874,7 +874,7 @@ variable "storage_managed_identity" {
   description = <<DESCRIPTION
 Controls the managed identity used by `AzureWebJobsStorage` and Flex Consumption deployment storage.
 
-- `user_assigned_resource_id` - (Optional) The resource ID of an attached user-assigned managed identity. When unset, the Function App uses its system-assigned managed identity for Storage. When set, the module configures `AzureWebJobsStorage__credential = managedidentity`, sets `AzureWebJobsStorage__clientId` from this identity, and configures Flex deployment storage with `UserAssignedIdentity`.
+- `user_assigned_resource_id` - (Optional) The resource ID of an attached user-assigned managed identity. When unset, the Function App uses its system-assigned managed identity for Storage. The module always configures `AzureWebJobsStorage__credential = managedidentity`; when this value is set, it also sets `AzureWebJobsStorage__clientId` from this identity and configures Flex deployment storage with `UserAssignedIdentity`.
 DESCRIPTION
   default     = {}
   nullable    = false
@@ -1023,7 +1023,7 @@ Controls Acmebot workload configuration. This object is sensitive because DNS pr
 - `mail_address` - (Required) The email address for the ACME account, without the `mailto:` prefix.
 - `vault_uri` - (Required) The Key Vault URI where issued certificates are stored.
 - `acme_endpoint` - (Optional) The certification authority ACME endpoint. Defaults to Let's Encrypt production.
-- `environment` - (Optional) The Azure environment name. Defaults to `AzureCloud`.
+- `environment` - (Optional) The Azure environment name. Defaults to `AzureCloud`. Set `AzureChinaCloud` or `AzureUSGovernment` explicitly for sovereign cloud deployments.
 - `webhook_url` - (Optional) The webhook URL where Acmebot sends notifications.
 - `preferred_chain` - (Optional) Preferred issuer chain name when the ACME CA offers alternate chains.
 - `preferred_profile` - (Optional) Preferred ACME profile when the CA advertises profiles.

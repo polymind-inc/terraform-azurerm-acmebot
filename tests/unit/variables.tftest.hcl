@@ -26,6 +26,11 @@ mock_provider "azapi" {
           principalId        = "22222222-2222-2222-2222-222222222222"
           ConnectionString   = "InstrumentationKey=33333333-3333-3333-3333-333333333333;IngestionEndpoint=https://eastus-0.in.applicationinsights.azure.com/"
           InstrumentationKey = "33333333-3333-3333-3333-333333333333"
+          primaryEndpoints = {
+            blob  = "https://stacmebottest.blob.core.windows.net/"
+            queue = "https://stacmebottest.queue.core.windows.net/"
+            table = "https://stacmebottest.table.core.windows.net/"
+          }
         }
       }
     }
@@ -95,6 +100,25 @@ variables {
 
 run "default_inputs_plan_successfully" {
   command = plan
+}
+
+run "sovereign_environment_plan_successfully" {
+  command = plan
+
+  variables {
+    acmebot = {
+      version      = "5.0.1"
+      mail_address = "test@example.com"
+      vault_uri    = "https://kv-acmebot-test.vault.azure.us/"
+      environment  = "AzureUSGovernment"
+
+      dns_providers = {
+        azure_dns = {
+          subscription_id = "00000000-0000-0000-0000-000000000000"
+        }
+      }
+    }
+  }
 }
 
 run "parent_id_must_be_resource_group_id" {
