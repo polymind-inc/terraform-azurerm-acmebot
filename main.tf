@@ -50,6 +50,7 @@ module "storage" {
   }
 
   role_assignments = {}
+  lock             = var.lock
 }
 
 module "serverfarm" {

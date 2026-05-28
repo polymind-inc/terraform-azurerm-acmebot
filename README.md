@@ -133,7 +133,7 @@ module "acmebot" {
 
 - Secret inputs are marked as sensitive, but they are still stored in Terraform state when used to configure the Function App.
 - `AzureWebJobsStorage` and Flex Consumption package deployment storage use managed identity. By default this is the system-assigned identity; set `storage_managed_identity.user_assigned_resource_id` to use an attached user-assigned identity instead.
-- The selected Storage identity receives Storage Account Contributor, Storage Blob Data Owner, Storage Queue Data Contributor, and Storage Table Data Contributor on the module-created Storage Account for identity-based host storage.
+- The selected Storage identity receives Storage Blob Data Owner, Storage Queue Data Contributor, and Storage Table Data Contributor on the module-created Storage Account for identity-based host storage. Storage Account Contributor is not assigned because Acmebot uses a Timer trigger only, so the control-plane permissions required by the Blob trigger are unnecessary.
 - To make Acmebot itself use a user-assigned managed identity for workload access, also attach it through `managed_identities.user_assigned_resource_ids` and set `acmebot.managed_identity_client_id`; the module maps it to `Acmebot__ManagedIdentityClientId`.
 - Storage Account Shared Key authorization is disabled by default. Blob versioning, change feed, blob soft delete, container soft delete, Entra-first portal auth, and infrastructure encryption are enabled by default.
 
@@ -146,6 +146,7 @@ module "acmebot" {
 - Storage Account Private Endpoints use the AVM private endpoint shape. Create entries for the storage subresources your Function App needs, typically `blob`, `queue`, and `table`, and set matching `private_dns_zone_resource_ids`.
 - Private Endpoints default to the Function App `sites` subresource and manage a private DNS zone group when `private_dns_zone_resource_ids` is set.
 - IP restrictions use AVM App Service-style `site_config.ip_restriction`, `site_config.scm_ip_restriction`, `site_config.ip_restriction_default_action`, `site_config.scm_ip_restriction_default_action`, and `site_config.scm_use_main_ip_restriction`.
+- `acmebot.use_system_name_server` controls whether Acmebot resolves ACME challenge records through the system DNS resolver or through Google Public DNS (`8.8.8.8`). When unset, the module enables the system resolver automatically for VNET-integrated deployments and for sovereign cloud `acmebot.environment` values where outbound access to `8.8.8.8` is unreliable. Set it explicitly to override.
 
 ### Operations
 
@@ -208,7 +209,7 @@ Description: Controls Acmebot workload configuration. This object is sensitive b
 - `preferred_chain` - (Optional) Preferred issuer chain name when the ACME CA offers alternate chains.
 - `preferred_profile` - (Optional) Preferred ACME profile when the CA advertises profiles.
 - `renew_before_expiry` - (Optional) Number of days before certificate expiry when scheduled renewal should run. Defaults to `30`.
-- `use_system_name_server` - (Optional) Whether Acmebot uses the system DNS resolver instead of Google Public DNS for challenge verification. Defaults to `false`.
+- `use_system_name_server` - (Optional) Whether Acmebot uses the system DNS resolver instead of Google Public DNS for challenge verification. Defaults to `true` when `virtual_network_subnet_id` is set or `environment` is a sovereign cloud, and `false` otherwise. Set explicitly to override.
 - `app_role_required` - (Optional) Whether additional app role assignment is required during Microsoft Entra authentication. Defaults to `false`.
 - `managed_identity_client_id` - (Optional) The client ID of the user-assigned managed identity Acmebot should use. When set, the identity must also be attached through `managed_identities.user_assigned_resource_ids`.
 - `external_account_binding` - (Optional) External Account Binding settings for ACME providers that require account binding.
@@ -227,7 +228,7 @@ object({
     preferred_chain            = optional(string, null)
     preferred_profile          = optional(string, null)
     renew_before_expiry        = optional(number, 30)
-    use_system_name_server     = optional(bool, false)
+    use_system_name_server     = optional(bool, null)
     app_role_required          = optional(bool, false)
     managed_identity_client_id = optional(string, null)
     external_account_binding = optional(object({

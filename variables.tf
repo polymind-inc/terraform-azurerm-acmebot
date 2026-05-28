@@ -931,7 +931,7 @@ variable "acmebot" {
     preferred_chain            = optional(string, null)
     preferred_profile          = optional(string, null)
     renew_before_expiry        = optional(number, 30)
-    use_system_name_server     = optional(bool, false)
+    use_system_name_server     = optional(bool, null)
     app_role_required          = optional(bool, false)
     managed_identity_client_id = optional(string, null)
     external_account_binding = optional(object({
@@ -1021,7 +1021,7 @@ Controls Acmebot workload configuration. This object is sensitive because DNS pr
 - `preferred_chain` - (Optional) Preferred issuer chain name when the ACME CA offers alternate chains.
 - `preferred_profile` - (Optional) Preferred ACME profile when the CA advertises profiles.
 - `renew_before_expiry` - (Optional) Number of days before certificate expiry when scheduled renewal should run. Defaults to `30`.
-- `use_system_name_server` - (Optional) Whether Acmebot uses the system DNS resolver instead of Google Public DNS for challenge verification. Defaults to `false`.
+- `use_system_name_server` - (Optional) Whether Acmebot uses the system DNS resolver instead of Google Public DNS for challenge verification. Defaults to `true` when `virtual_network_subnet_id` is set or `environment` is a sovereign cloud, and `false` otherwise. Set explicitly to override.
 - `app_role_required` - (Optional) Whether additional app role assignment is required during Microsoft Entra authentication. Defaults to `false`.
 - `managed_identity_client_id` - (Optional) The client ID of the user-assigned managed identity Acmebot should use. When set, the identity must also be attached through `managed_identities.user_assigned_resource_ids`.
 - `external_account_binding` - (Optional) External Account Binding settings for ACME providers that require account binding.

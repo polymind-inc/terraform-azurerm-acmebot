@@ -58,6 +58,10 @@ locals {
 
   gandi_live_dns_options = var.acmebot.dns_providers.gandi_live_dns != null ? var.acmebot.dns_providers.gandi_live_dns : var.acmebot.dns_providers.gandi
 
+  acmebot_use_system_name_server = var.acmebot.use_system_name_server != null ? var.acmebot.use_system_name_server : (
+    var.virtual_network_subnet_id != null || var.acmebot.environment != "AzureCloud"
+  )
+
   acmebot_app_settings = merge(
     {
       "Acmebot__Contacts"            = var.acmebot.mail_address
@@ -65,8 +69,8 @@ locals {
       "Acmebot__VaultBaseUrl"        = var.acmebot.vault_uri
       "Acmebot__Environment"         = var.acmebot.environment
       "Acmebot__RenewBeforeExpiry"   = tostring(var.acmebot.renew_before_expiry)
-      "Acmebot__UseSystemNameServer" = tostring(var.acmebot.use_system_name_server)
-      "Acmebot:AppRoleRequired"      = tostring(var.acmebot.app_role_required)
+      "Acmebot__UseSystemNameServer" = tostring(local.acmebot_use_system_name_server)
+      "Acmebot__AppRoleRequired"     = tostring(var.acmebot.app_role_required)
     },
     var.acmebot.external_account_binding != null ? {
       "Acmebot__ExternalAccountBinding__KeyId"     = var.acmebot.external_account_binding.key_id
@@ -215,7 +219,7 @@ locals {
 
   auth_settings_v2 = var.auth_settings != null ? {
     auth_enabled                  = var.auth_settings.enabled
-    require_authentication        = true
+    require_authentication        = var.auth_settings.enabled
     redirect_to_provider          = "azureactivedirectory"
     unauthenticated_client_action = "RedirectToLoginPage"
     identity_providers = {
@@ -238,7 +242,6 @@ locals {
   storage_account_sku_name = "Standard_${var.storage_account.account_replication_type}"
 
   storage_role_definition_ids = {
-    storage_account_contributor    = "${local.subscription_resource_id}/providers/Microsoft.Authorization/roleDefinitions/17d1049b-9a84-46fb-8f53-869881c3d3ab"
     storage_blob_data_owner        = "${local.subscription_resource_id}/providers/Microsoft.Authorization/roleDefinitions/b7e6dc6d-f1e8-4753-8033-0f276bb0955b"
     storage_queue_data_contributor = "${local.subscription_resource_id}/providers/Microsoft.Authorization/roleDefinitions/974c5e8b-45b9-4653-ba55-5f855dd0fb88"
     storage_table_data_contributor = "${local.subscription_resource_id}/providers/Microsoft.Authorization/roleDefinitions/0a9a7e1f-b9d0-4cc4-a60d-0319b160aaa3"

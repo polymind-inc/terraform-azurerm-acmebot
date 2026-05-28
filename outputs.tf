@@ -4,9 +4,8 @@ output "name" {
 }
 
 output "resource_id" {
-  value       = module.this.resource_id
+  value       = nonsensitive(module.this.resource_id)
   description = "The resource ID of the Function App."
-  sensitive   = true
 }
 
 output "resource" {
