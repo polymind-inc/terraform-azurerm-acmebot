@@ -173,11 +173,15 @@ module "acmebot" {
     system_assigned = true
   }
 
-  # To use a user-assigned managed identity for Acmebot, assign Key Vault access
-  # to that identity and pass both the AVM-style resource ID and Acmebot client ID.
+  # To use a user-assigned managed identity for Acmebot and AzureWebJobsStorage,
+  # attach it to the Function App, select it for Storage, assign Key Vault access
+  # to it, and pass its client ID to Acmebot.
   # managed_identities = {
   #   system_assigned            = false
   #   user_assigned_resource_ids = [azurerm_user_assigned_identity.acmebot.id]
+  # }
+  # storage_managed_identity = {
+  #   user_assigned_resource_id = azurerm_user_assigned_identity.acmebot.id
   # }
   # Add this to the acmebot object above:
   # managed_identity_client_id = azurerm_user_assigned_identity.acmebot.client_id

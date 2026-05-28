@@ -17,7 +17,7 @@ output "resource" {
 
 output "system_assigned_mi_principal_id" {
   value       = module.this.system_assigned_mi_principal_id
-  description = "The principal ID of the system-assigned managed identity."
+  description = "The principal ID of the system-assigned managed identity. Null when the system-assigned identity is disabled."
   sensitive   = true
 }
 
