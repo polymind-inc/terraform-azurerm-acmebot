@@ -16,4 +16,4 @@ terraform init
 terraform apply
 ```
 
-The commented sections in [main.tf](main.tf) show the additional inputs commonly needed for private networking and user-assigned managed identities.
+For a private, enterprise-grade deployment with VNET integration, Function App and Storage Account Private Endpoints, private DNS, a user-assigned managed identity, and a resource lock, see the [`complete`](../complete) example.
