@@ -76,7 +76,7 @@ resource "azuread_application" "default" {
 
   app_role {
     allowed_member_types = ["User", "Application"]
-    description          = "Allow new and renew certificate"
+    description          = "Allow issuing and renewing certificates"
     display_name         = "Acmebot.IssueCertificate"
     enabled              = true
     value                = "Acmebot.IssueCertificate"
@@ -85,7 +85,7 @@ resource "azuread_application" "default" {
 
   app_role {
     allowed_member_types = ["User", "Application"]
-    description          = "Allow revoke certificate"
+    description          = "Allow revoking certificates"
     display_name         = "Acmebot.RevokeCertificate"
     enabled              = true
     value                = "Acmebot.RevokeCertificate"
