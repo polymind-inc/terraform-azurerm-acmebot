@@ -8,7 +8,7 @@ resource "random_string" "deployment_container_suffix" {
 
 module "storage" {
   source  = "Azure/avm-res-storage-storageaccount/azurerm"
-  version = "~> 0.7"
+  version = "~> 0.7.0"
 
   name             = local.storage_account_name
   location         = var.location
@@ -16,9 +16,9 @@ module "storage" {
   enable_telemetry = var.enable_telemetry
   tags             = var.storage_account.tags != null ? var.storage_account.tags : local.tags
 
-  account_kind                      = "StorageV2"
-  account_tier                      = "Standard"
-  account_replication_type          = var.storage_account.account_replication_type
+  account_kind = "StorageV2"
+  # account_sku_name is authoritative in the storage AVM module; account_tier /
+  # account_replication_type are deprecated there and ignored when it is set.
   account_sku_name                  = local.storage_account_sku_name
   allow_nested_items_to_be_public   = false
   blob_properties                   = var.storage_account.blob_properties
@@ -118,7 +118,7 @@ data "azapi_resource" "application_insights" {
 
 module "this" {
   source  = "Azure/avm-res-web-site/azurerm"
-  version = "~> 0.22"
+  version = "~> 0.22.0"
 
   name             = local.function_app_name
   location         = var.location

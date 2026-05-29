@@ -41,6 +41,13 @@ locals {
     )
   )
 
+  # Reads the blob/queue/table service URIs straight from the deployed account so
+  # sovereign-cloud endpoint suffixes are honored without hard-coding them. This
+  # relies on the storage AVM module exporting properties.primaryEndpoints in its
+  # response_export_values; the version pin in main.tf guards against that export
+  # changing under us. The storage module's fqdn output is not a substitute: it
+  # only covers services that have child resources (blob only here) and hard-codes
+  # the core.windows.net suffix.
   storage_primary_endpoints      = nonsensitive(module.storage.resource.output.properties.primaryEndpoints)
   storage_container_endpoint_url = "${local.storage_primary_endpoints.blob}${local.deployment_container_name}"
 
