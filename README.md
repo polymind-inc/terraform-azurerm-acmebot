@@ -125,7 +125,7 @@ module "acmebot" {
 
 - `name` is the Function App name. It must be 2-32 characters; contain only letters, numbers, and hyphens; and start and end with a letter or number.
 - `parent_id` is the AVM-aligned deployment scope input and must be the resource ID of an existing resource group.
-- `acmebot.version` must be a Semantic Versioning 2.0.0 version, such as `5.0.1`, `5.0.1-beta.1`, or `5.0.1+build.5`.
+- `acmebot.version` must be a Semantic Versioning 2.0.0 version, such as `5.0.1`, `5.0.1-beta.1`, or `5.0.1+build.5`. It must also correspond to a package that has actually been published for that version. Check the [Acmebot releases](https://github.com/shibayan/keyvault-acmebot/releases) and set `version` to the release tag without the leading `v` (for example, the `v5.0.1` release maps to `version = "5.0.1"`). The validation only checks the version *format*, not that the package exists, so an unpublished version passes validation but fails at deploy time with a 404. This module targets the Flex Consumption package layout, which is published under `v5` and later.
 - Acmebot workload settings are grouped under `acmebot`, including ACME account settings, Key Vault target, DNS provider configuration, webhook configuration, and External Account Binding.
 - Acmebot deployment uses Azure Functions zip deploy. The package URI is built from `acmebot.version` as `https://stacmebotprod.blob.core.windows.net/acmebot/v<major>/<version>.zip`.
 
@@ -200,7 +200,7 @@ The following input variables are required:
 
 Description: Controls Acmebot workload configuration. This object is sensitive because DNS provider credentials, webhook URLs, and external account binding secrets are passed to the Function App as application settings and stored in Terraform state.
 
-- `version` - (Required) The Acmebot package version to deploy. Must be a Semantic Versioning 2.0.0 version, such as `5.0.1`, `5.0.1-beta.1`, or `5.0.1+build.5`.
+- `version` - (Required) The Acmebot package version to deploy. Must be a Semantic Versioning 2.0.0 version, such as `5.0.1`, `5.0.1-beta.1`, or `5.0.1+build.5`, and must match a published release. Pick an existing version from the [Acmebot releases](https://github.com/shibayan/keyvault-acmebot/releases) (use the release tag without the leading `v`); validation only checks the format, so an unpublished version fails at deploy time. This module requires the Flex Consumption package layout published under `v5` and later.
 - `mail_address` - (Required) The email address for the ACME account, without the `mailto:` prefix.
 - `vault_uri` - (Required) The Key Vault URI where issued certificates are stored.
 - `acme_endpoint` - (Optional) The certification authority ACME endpoint. Defaults to Let's Encrypt production.
@@ -910,13 +910,13 @@ Version: ~> 2.0
 
 Source: Azure/avm-res-storage-storageaccount/azurerm
 
-Version: ~> 0.7
+Version: ~> 0.7.0
 
 ### <a name="module_this"></a> [this](#module\_this)
 
 Source: Azure/avm-res-web-site/azurerm
 
-Version: ~> 0.22
+Version: ~> 0.22.0
 
 ## License
 

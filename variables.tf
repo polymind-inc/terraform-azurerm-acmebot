@@ -721,8 +721,8 @@ DESCRIPTION
   nullable    = false
 
   validation {
-    condition     = var.deployment_container.name == null || can(regex("^[a-z0-9](?:[a-z0-9-]{1,61}[a-z0-9])$", var.deployment_container.name))
-    error_message = "deployment_container.name must be 3-63 characters of lowercase letters, numbers, and hyphens, and start and end with a letter or number."
+    condition     = var.deployment_container.name == null || (can(regex("^[a-z0-9]+(-[a-z0-9]+)*$", var.deployment_container.name)) && length(var.deployment_container.name) >= 3 && length(var.deployment_container.name) <= 63)
+    error_message = "deployment_container.name must be 3-63 characters of lowercase letters, numbers, and hyphens; start and end with a letter or number; and not contain consecutive hyphens."
   }
 }
 
@@ -1010,7 +1010,7 @@ variable "acmebot" {
   description = <<DESCRIPTION
 Controls Acmebot workload configuration. This object is sensitive because DNS provider credentials, webhook URLs, and external account binding secrets are passed to the Function App as application settings and stored in Terraform state.
 
-- `version` - (Required) The Acmebot package version to deploy. Must be a Semantic Versioning 2.0.0 version, such as `5.0.1`, `5.0.1-beta.1`, or `5.0.1+build.5`.
+- `version` - (Required) The Acmebot package version to deploy. Must be a Semantic Versioning 2.0.0 version, such as `5.0.1`, `5.0.1-beta.1`, or `5.0.1+build.5`, and must match a published release. Pick an existing version from the [Acmebot releases](https://github.com/shibayan/keyvault-acmebot/releases) (use the release tag without the leading `v`); validation only checks the format, so an unpublished version fails at deploy time. This module requires the Flex Consumption package layout published under `v5` and later.
 - `mail_address` - (Required) The email address for the ACME account, without the `mailto:` prefix.
 - `vault_uri` - (Required) The Key Vault URI where issued certificates are stored.
 - `acme_endpoint` - (Optional) The certification authority ACME endpoint. Defaults to Let's Encrypt production.
