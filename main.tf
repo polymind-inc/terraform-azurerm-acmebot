@@ -14,7 +14,7 @@ module "storage" {
   location         = var.location
   parent_id        = local.resource_group_id
   enable_telemetry = var.enable_telemetry
-  tags             = var.storage_account.tags != null ? var.storage_account.tags : local.tags
+  tags             = var.storage_account.tags != null ? var.storage_account.tags : var.tags
 
   account_kind = "StorageV2"
   # account_sku_name is authoritative in the storage AVM module; account_tier /
@@ -61,7 +61,7 @@ module "serverfarm" {
   location         = var.location
   parent_id        = local.resource_group_id
   enable_telemetry = var.enable_telemetry
-  tags             = var.service_plan.tags != null ? var.service_plan.tags : local.tags
+  tags             = var.service_plan.tags != null ? var.service_plan.tags : var.tags
 
   os_type  = "Linux"
   sku_name = "FC1"
@@ -74,7 +74,7 @@ resource "azapi_resource" "log_analytics_workspace" {
   location  = var.location
   parent_id = local.resource_group_id
   type      = "Microsoft.OperationalInsights/workspaces@2025-02-01"
-  tags      = var.log_analytics_workspace.tags != null ? var.log_analytics_workspace.tags : local.tags
+  tags      = var.log_analytics_workspace.tags != null ? var.log_analytics_workspace.tags : var.tags
 
   body = {
     properties = {
@@ -95,7 +95,7 @@ resource "azapi_resource" "application_insights" {
   location  = var.location
   parent_id = local.resource_group_id
   type      = "Microsoft.Insights/components@2020-02-02"
-  tags      = var.application_insights.tags != null ? var.application_insights.tags : local.tags
+  tags      = var.application_insights.tags != null ? var.application_insights.tags : var.tags
 
   body = {
     kind = "web"
@@ -120,11 +120,11 @@ module "this" {
   source  = "Azure/avm-res-web-site/azurerm"
   version = "~> 0.22.0"
 
-  name             = local.function_app_name
+  name             = var.name
   location         = var.location
   parent_id        = local.resource_group_id
   enable_telemetry = var.enable_telemetry
-  tags             = local.tags
+  tags             = var.tags
 
   kind                     = "functionapp"
   os_type                  = "Linux"
@@ -217,6 +217,7 @@ resource "azapi_resource" "deployment" {
 
   body = {
     properties = {
+      type        = "zip"
       packageUri  = local.acmebot_package_uri
       remoteBuild = false
     }

@@ -171,6 +171,25 @@ run "acmebot_version_must_be_semver" {
   expect_failures = [var.acmebot]
 }
 
+run "acmebot_version_must_be_v5_or_later" {
+  command = plan
+
+  variables {
+    acmebot = {
+      version      = "4.9.9"
+      mail_address = "test@example.com"
+      vault_uri    = "https://kv-acmebot-test.vault.azure.net/"
+      dns_providers = {
+        azure_dns = {
+          subscription_id = "00000000-0000-0000-0000-000000000000"
+        }
+      }
+    }
+  }
+
+  expect_failures = [var.acmebot]
+}
+
 run "acmebot_mail_address_must_not_include_mailto_prefix" {
   command = plan
 

@@ -1034,6 +1034,13 @@ DESCRIPTION
   }
 
   validation {
+    # Defer to the SemVer validation above for malformed input; only enforce the
+    # major when the version starts with a numeric segment.
+    condition     = can(regex("^(0|[1-9][0-9]*)\\.", var.acmebot.version)) ? tonumber(split(".", var.acmebot.version)[0]) >= 5 : true
+    error_message = "acmebot.version major version must be 5 or greater; this module requires the Flex Consumption package layout published under v5 and later."
+  }
+
+  validation {
     condition     = can(regex("^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$", var.acmebot.mail_address)) && !startswith(lower(var.acmebot.mail_address), "mailto:")
     error_message = "acmebot.mail_address must be an email address without the mailto: prefix."
   }
