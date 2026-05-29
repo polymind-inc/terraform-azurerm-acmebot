@@ -162,6 +162,7 @@ module "this" {
   site_config = {
     minimum_tls_version               = "1.2"
     scm_minimum_tls_version           = "1.2"
+    ftps_state                        = "Disabled"
     scm_use_main_ip_restriction       = local.site_config_scm_use_main_ip_restriction
     vnet_route_all_enabled            = local.site_config_vnet_route_all_enabled
     ip_restriction_default_action     = local.site_config_ip_restriction_default_action
