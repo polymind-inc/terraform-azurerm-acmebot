@@ -184,74 +184,9 @@ module "acmebot" {
     scm_use_main_ip_restriction       = false
   }
 
-  # To use a user-assigned managed identity for Acmebot and AzureWebJobsStorage,
-  # attach it to the Function App, select it for Storage, assign Key Vault access
-  # to it, and pass its client ID to Acmebot.
-  # managed_identities = {
-  #   system_assigned            = false
-  #   user_assigned_resource_ids = [azurerm_user_assigned_identity.acmebot.id]
-  # }
-  # storage_managed_identity = {
-  #   user_assigned_resource_id = azurerm_user_assigned_identity.acmebot.id
-  # }
-  # Add this to the acmebot object above:
-  # managed_identity_client_id = azurerm_user_assigned_identity.acmebot.client_id
-  #
-  # virtual_network_subnet_id = "/subscriptions/xxxx/resourceGroups/rg-network/providers/Microsoft.Network/virtualNetworks/vnet-acmebot/subnets/snet-acmebot"
-  #
-  # storage_account = {
-  #   public_network_access_enabled = false
-  #
-  #   private_endpoints = {
-  #     blob = {
-  #       subnet_resource_id = "/subscriptions/xxxx/resourceGroups/rg-network/providers/Microsoft.Network/virtualNetworks/vnet-acmebot/subnets/snet-storage-private-endpoints"
-  #       subresource_name   = "blob"
-  #       private_dns_zone_resource_ids = [
-  #         "/subscriptions/xxxx/resourceGroups/rg-network/providers/Microsoft.Network/privateDnsZones/privatelink.blob.core.windows.net"
-  #       ]
-  #     }
-  #     queue = {
-  #       subnet_resource_id = "/subscriptions/xxxx/resourceGroups/rg-network/providers/Microsoft.Network/virtualNetworks/vnet-acmebot/subnets/snet-storage-private-endpoints"
-  #       subresource_name   = "queue"
-  #       private_dns_zone_resource_ids = [
-  #         "/subscriptions/xxxx/resourceGroups/rg-network/providers/Microsoft.Network/privateDnsZones/privatelink.queue.core.windows.net"
-  #       ]
-  #     }
-  #     table = {
-  #       subnet_resource_id = "/subscriptions/xxxx/resourceGroups/rg-network/providers/Microsoft.Network/virtualNetworks/vnet-acmebot/subnets/snet-storage-private-endpoints"
-  #       subresource_name   = "table"
-  #       private_dns_zone_resource_ids = [
-  #         "/subscriptions/xxxx/resourceGroups/rg-network/providers/Microsoft.Network/privateDnsZones/privatelink.table.core.windows.net"
-  #       ]
-  #     }
-  #   }
-  # }
-  #
-  # site_config = {
-  #   vnet_route_all_enabled        = true
-  #   ip_restriction_default_action = "Deny"
-  #   scm_use_main_ip_restriction   = true
-  #
-  #   ip_restriction = [
-  #     {
-  #       name        = "Allow Azure Front Door"
-  #       priority    = 100
-  #       service_tag = "AzureFrontDoor.Backend"
-  #       headers = {
-  #         x_azure_fdid = ["00000000-0000-0000-0000-000000000000"]
-  #       }
-  #     }
-  #   ]
-  # }
-  #
-  # private_endpoints = {
-  #   primary = {
-  #     subnet_resource_id = "/subscriptions/xxxx/resourceGroups/rg-network/providers/Microsoft.Network/virtualNetworks/vnet-acmebot/subnets/snet-private-endpoints"
-  #     private_dns_zone_resource_ids = [
-  #       "/subscriptions/xxxx/resourceGroups/rg-network/providers/Microsoft.Network/privateDnsZones/privatelink.azurewebsites.net"
-  #     ]
-  #   }
-  # }
+  # For a private deployment with VNET integration, Function App and Storage
+  # Account Private Endpoints, and a user-assigned managed identity, see the
+  # ../complete example.
 
   auth_settings = {
     enabled = true
