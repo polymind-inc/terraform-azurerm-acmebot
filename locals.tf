@@ -1,7 +1,4 @@
 locals {
-  function_app_name = var.name
-  tags              = var.tags
-
   resource_group           = provider::azapi::parse_resource_id("Microsoft.Resources/resourceGroups", var.parent_id)
   resource_group_id        = local.resource_group.id
   subscription_id          = local.resource_group.subscription_id
@@ -36,7 +33,7 @@ locals {
     var.deployment_container.name,
     format(
       "app-package-%s-%s",
-      trim(substr(replace(replace(lower(local.function_app_name), "/[^a-z0-9-]/", ""), "/-+/", "-"), 0, 43), "-"),
+      trim(substr(replace(replace(lower(var.name), "/[^a-z0-9-]/", ""), "/-+/", "-"), 0, 43), "-"),
       random_string.deployment_container_suffix.result,
     )
   )
