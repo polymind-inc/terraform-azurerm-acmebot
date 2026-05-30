@@ -540,11 +540,11 @@ Default:
 
 ### <a name="input_maximum_instance_count"></a> [maximum\_instance\_count](#input\_maximum\_instance\_count)
 
-Description: Optional maximum scale-out instance count for the Function App.
+Description: Maximum scale-out instance count for the Function App. Defaults to 10.
 
 Type: `number`
 
-Default: `null`
+Default: `10`
 
 ### <a name="input_private_endpoints"></a> [private\_endpoints](#input\_private\_endpoints)
 
@@ -654,14 +654,16 @@ Default: `{}`
 Description: Controls the App Service Plan used by the Function App.
 
 - `name` - (Optional) The name of the App Service Plan. When unset, the module generates a CAF-aligned name using the `asp` prefix.
+- `zone_redundant` - (Optional) Whether the App Service Plan is zone redundant. Defaults to `false`. For Flex Consumption (`FC1`), zone redundancy is only available in Azure regions that advertise the `FCZONEREDUNDANCY` capability; leave this `false` in unsupported regions.
 - `tags` - (Optional) Tags to apply to the App Service Plan. When unset, `var.tags` is inherited.
 
 Type:
 
 ```hcl
 object({
-    name = optional(string, null)
-    tags = optional(map(string), null)
+    name           = optional(string, null)
+    zone_redundant = optional(bool, false)
+    tags           = optional(map(string), null)
   })
 ```
 
@@ -895,9 +897,17 @@ Description: The Function App resource.
 
 Description: The resource ID of the Function App.
 
+### <a name="output_storage_account_name"></a> [storage\_account\_name](#output\_storage\_account\_name)
+
+Description: The name of the Storage Account.
+
 ### <a name="output_storage_account_private_endpoints"></a> [storage\_account\_private\_endpoints](#output\_storage\_account\_private\_endpoints)
 
 Description: A map of the Storage Account private endpoints created.
+
+### <a name="output_storage_account_resource_id"></a> [storage\_account\_resource\_id](#output\_storage\_account\_resource\_id)
+
+Description: The resource ID of the Storage Account.
 
 ### <a name="output_system_assigned_mi_principal_id"></a> [system\_assigned\_mi\_principal\_id](#output\_system\_assigned\_mi\_principal\_id)
 

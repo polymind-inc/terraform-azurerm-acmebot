@@ -63,8 +63,9 @@ module "serverfarm" {
   enable_telemetry = var.enable_telemetry
   tags             = var.service_plan.tags != null ? var.service_plan.tags : var.tags
 
-  os_type  = "Linux"
-  sku_name = "FC1"
+  os_type                = "Linux"
+  sku_name               = "FC1"
+  zone_balancing_enabled = var.service_plan.zone_redundant
 }
 
 resource "azapi_resource" "log_analytics_workspace" {
@@ -234,7 +235,7 @@ resource "azapi_resource" "deployment" {
 data "azapi_resource_action" "function_host_keys" {
   count = var.export_api_key ? 1 : 0
 
-  type                   = "Microsoft.Web/sites/host@2024-04-01"
+  type                   = "Microsoft.Web/sites/host@2025-03-01"
   resource_id            = "${module.this.resource_id}/host/default"
   action                 = "listKeys"
   method                 = "POST"
