@@ -893,11 +893,12 @@ DESCRIPTION
 
 variable "maximum_instance_count" {
   type        = number
-  description = "Optional maximum scale-out instance count for the Function App."
-  default     = null
+  description = "Maximum scale-out instance count for the Function App. Defaults to 10."
+  default     = 10
+  nullable    = false
 
   validation {
-    condition     = var.maximum_instance_count == null || (var.maximum_instance_count >= 1 && var.maximum_instance_count <= 1000)
+    condition     = var.maximum_instance_count >= 1 && var.maximum_instance_count <= 1000
     error_message = "maximum_instance_count must be between 1 and 1000."
   }
 }

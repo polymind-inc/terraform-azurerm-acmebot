@@ -40,6 +40,16 @@ output "storage_account_private_endpoints" {
   description = "A map of the Storage Account private endpoints created."
 }
 
+output "storage_account_name" {
+  value       = module.storage.name
+  description = "The name of the Storage Account."
+}
+
+output "storage_account_resource_id" {
+  value       = module.storage.resource_id
+  description = "The resource ID of the Storage Account."
+}
+
 output "api_key" {
   value       = var.export_api_key ? data.azapi_resource_action.function_host_keys[0].output.functionKeys.default : null
   description = "Created Default Functions API Key. Null unless export_api_key is enabled."
