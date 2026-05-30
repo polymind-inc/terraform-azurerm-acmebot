@@ -1,19 +1,28 @@
 # Default Example
 
-Deploys Acmebot on Azure Functions Flex Consumption with:
+This example deploys a minimal, publicly reachable Acmebot instance on Azure
+Functions Flex Consumption. It is intended as a quickstart for evaluating the
+module and understanding the required Acmebot settings.
 
-- A system-assigned managed identity for the Function App and Storage access.
-- App Service Authentication backed by a Microsoft Entra application.
-- Azure DNS as the ACME challenge provider.
+It creates:
+
+- A resource group for the example deployment.
 - A Key Vault target for issued certificates.
+- A Function App with a system-assigned managed identity.
+- Identity-based Storage access for `AzureWebJobsStorage`.
+- Azure DNS as the ACME DNS-01 challenge provider.
 
-This example explicitly keeps the quickstart publicly reachable with minimal networking. The module defaults to a private posture, so public network access and permissive IP restriction defaults are set here for a low-friction sample. For private deployments, remove those public overrides and configure VNET integration plus Function App and Storage Account Private Endpoints.
+This example does not configure App Service Authentication. The root module
+defaults to a private posture, so this example explicitly enables public network
+access and permissive IP restriction defaults for a low-friction deployment. For
+a private deployment, use the [`complete`](../complete) example.
 
-Before applying, replace `admin@example.com` in [main.tf](main.tf) with the email address used for the ACME account.
+## Deploy
+
+Before applying, replace `admin@example.com` in [main.tf](main.tf) with the email
+address used for the ACME account.
 
 ```bash
 terraform init
 terraform apply
 ```
-
-For a private, enterprise-grade deployment with VNET integration, Function App and Storage Account Private Endpoints, private DNS, a user-assigned managed identity, and a resource lock, see the [`complete`](../complete) example.
