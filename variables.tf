@@ -728,13 +728,15 @@ DESCRIPTION
 
 variable "service_plan" {
   type = object({
-    name = optional(string, null)
-    tags = optional(map(string), null)
+    name           = optional(string, null)
+    zone_redundant = optional(bool, false)
+    tags           = optional(map(string), null)
   })
   description = <<DESCRIPTION
 Controls the App Service Plan used by the Function App.
 
 - `name` - (Optional) The name of the App Service Plan. When unset, the module generates a CAF-aligned name using the `asp` prefix.
+- `zone_redundant` - (Optional) Whether the App Service Plan is zone redundant. Defaults to `false`. For Flex Consumption (`FC1`), zone redundancy is only available in Azure regions that advertise the `FCZONEREDUNDANCY` capability; leave this `false` in unsupported regions.
 - `tags` - (Optional) Tags to apply to the App Service Plan. When unset, `var.tags` is inherited.
 DESCRIPTION
   default     = {}

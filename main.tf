@@ -63,8 +63,9 @@ module "serverfarm" {
   enable_telemetry = var.enable_telemetry
   tags             = var.service_plan.tags != null ? var.service_plan.tags : var.tags
 
-  os_type  = "Linux"
-  sku_name = "FC1"
+  os_type                = "Linux"
+  sku_name               = "FC1"
+  zone_balancing_enabled = var.service_plan.zone_redundant
 }
 
 resource "azapi_resource" "log_analytics_workspace" {
