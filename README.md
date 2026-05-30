@@ -123,7 +123,7 @@ module "acmebot" {
 
 Runnable examples are available under [`examples`](examples):
 
-- [`default`](examples/default) - A public quickstart with minimal networking, a system-assigned managed identity, App Service Authentication, and Azure DNS.
+- [`default`](examples/default) - A public quickstart with minimal networking, a system-assigned managed identity, no App Service Authentication, and Azure DNS.
 - [`complete`](examples/complete) - A fully private, enterprise-grade deployment with VNET integration, Function App and Storage Account Private Endpoints, private DNS, a user-assigned managed identity, and a resource lock.
 
 ## Notes

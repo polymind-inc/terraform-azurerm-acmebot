@@ -14,17 +14,9 @@ terraform {
       source  = "hashicorp/azurerm"
       version = "~> 4.0"
     }
-    azuread = {
-      source  = "hashicorp/azuread"
-      version = "~> 3.0"
-    }
     random = {
       source  = "hashicorp/random"
       version = "~> 3.0"
-    }
-    time = {
-      source  = "hashicorp/time"
-      version = "~> 0.14"
     }
   }
 }
@@ -34,90 +26,6 @@ resource "random_string" "random" {
   lower   = true
   upper   = false
   special = false
-}
-
-resource "random_uuid" "user_impersonation" {}
-
-resource "random_uuid" "app_role_issue" {}
-
-resource "random_uuid" "app_role_revoke" {}
-
-resource "time_rotating" "default" {
-  rotation_days = 180
-}
-
-data "azuread_client_config" "current" {}
-
-resource "azuread_application" "default" {
-  display_name    = "Acmebot ${random_string.random.result}"
-  identifier_uris = ["api://acmebot-${random_string.random.result}"]
-  owners          = [data.azuread_client_config.current.object_id]
-
-  api {
-    requested_access_token_version = 2
-
-    oauth2_permission_scope {
-      admin_consent_description  = "Allow the application to access Acmebot on behalf of the signed-in user."
-      admin_consent_display_name = "Access Acmebot"
-      enabled                    = true
-      id                         = random_uuid.user_impersonation.result
-      type                       = "User"
-      user_consent_description   = "Allow the application to access Acmebot on your behalf."
-      user_consent_display_name  = "Access Acmebot"
-      value                      = "user_impersonation"
-    }
-  }
-
-  app_role {
-    allowed_member_types = ["User", "Application"]
-    description          = "Allow new and renew certificate"
-    display_name         = "Acmebot.IssueCertificate"
-    enabled              = true
-    value                = "Acmebot.IssueCertificate"
-    id                   = random_uuid.app_role_issue.result
-  }
-
-  app_role {
-    allowed_member_types = ["User", "Application"]
-    description          = "Allow revoke certificate"
-    display_name         = "Acmebot.RevokeCertificate"
-    enabled              = true
-    value                = "Acmebot.RevokeCertificate"
-    id                   = random_uuid.app_role_revoke.result
-  }
-
-  web {
-    redirect_uris = ["https://func-acmebot-${random_string.random.result}.azurewebsites.net/.auth/login/aad/callback"]
-
-    implicit_grant {
-      access_token_issuance_enabled = false
-      id_token_issuance_enabled     = true
-    }
-  }
-}
-
-resource "azuread_service_principal" "default" {
-  client_id = azuread_application.default.client_id
-  owners    = [data.azuread_client_config.current.object_id]
-
-  app_role_assignment_required = false
-}
-
-resource "azuread_application_password" "default" {
-  application_id = azuread_application.default.id
-  end_date       = timeadd(timestamp(), "8760h")
-
-  rotate_when_changed = {
-    rotation = time_rotating.default.id
-  }
-
-  lifecycle {
-    create_before_destroy = true
-
-    ignore_changes = [
-      end_date
-    ]
-  }
 }
 
 data "azurerm_client_config" "current" {
@@ -159,7 +67,7 @@ module "acmebot" {
   }
 
   acmebot = {
-    version      = "5.0.1"
+    version      = "5.0.0"
     mail_address = "admin@example.com"
     vault_uri    = azurerm_key_vault.default.vault_uri
 
@@ -183,20 +91,6 @@ module "acmebot" {
     scm_ip_restriction_default_action = "Allow"
     scm_use_main_ip_restriction       = false
   }
-
-  # For a private deployment with VNET integration, Function App and Storage
-  # Account Private Endpoints, and a user-assigned managed identity, see the
-  # ../complete example.
-
-  auth_settings = {
-    enabled = true
-    active_directory = {
-      client_id            = azuread_application.default.client_id
-      tenant_auth_endpoint = "https://login.microsoftonline.com/${data.azuread_client_config.current.tenant_id}/v2.0"
-    }
-  }
-
-  auth_settings_client_secret = azuread_application_password.default.value
 }
 
 output "system_assigned_mi_principal_id" {
