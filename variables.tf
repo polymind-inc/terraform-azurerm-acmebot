@@ -70,56 +70,6 @@ variable "auth_settings_client_secret" {
   }
 }
 
-variable "diagnostic_settings" {
-  type = map(object({
-    name                                     = optional(string, null)
-    log_categories                           = optional(set(string), [])
-    log_groups                               = optional(set(string), ["allLogs"])
-    metric_categories                        = optional(set(string), ["AllMetrics"])
-    log_analytics_destination_type           = optional(string, "Dedicated")
-    workspace_resource_id                    = optional(string, null)
-    storage_account_resource_id              = optional(string, null)
-    event_hub_authorization_rule_resource_id = optional(string, null)
-    event_hub_name                           = optional(string, null)
-    marketplace_partner_resource_id          = optional(string, null)
-  }))
-  description = <<DESCRIPTION
-A map of diagnostic settings to create on the Function App. The map key is deliberately arbitrary to avoid issues where map keys may be unknown at plan time.
-
-- `name` - (Optional) The name of the diagnostic setting. One will be generated if not set.
-- `log_categories` - (Optional) A set of log categories to send to the destination.
-- `log_groups` - (Optional) A set of log category groups to send to the destination. Defaults to `["allLogs"]`.
-- `metric_categories` - (Optional) A set of metric categories to send to the destination. Defaults to `["AllMetrics"]`.
-- `log_analytics_destination_type` - (Optional) The destination table type for Log Analytics. Possible values are `Dedicated` and `AzureDiagnostics`. Defaults to `Dedicated`.
-- `workspace_resource_id` - (Optional) The resource ID of the Log Analytics workspace destination.
-- `storage_account_resource_id` - (Optional) The resource ID of the Storage Account destination.
-- `event_hub_authorization_rule_resource_id` - (Optional) The resource ID of the Event Hub authorization rule destination.
-- `event_hub_name` - (Optional) The Event Hub name. When unset, the default Event Hub is used.
-- `marketplace_partner_resource_id` - (Optional) The full ARM resource ID of the Marketplace partner destination.
-DESCRIPTION
-  default     = {}
-  nullable    = false
-
-  validation {
-    condition     = alltrue([for _, v in var.diagnostic_settings : contains(["Dedicated", "AzureDiagnostics"], v.log_analytics_destination_type)])
-    error_message = "Log analytics destination type must be one of: \"Dedicated\", \"AzureDiagnostics\"."
-  }
-
-  validation {
-    condition = alltrue([
-      for _, v in var.diagnostic_settings : v.workspace_resource_id != null || v.storage_account_resource_id != null || v.event_hub_authorization_rule_resource_id != null || v.marketplace_partner_resource_id != null
-    ])
-    error_message = "At least one of workspace_resource_id, storage_account_resource_id, event_hub_authorization_rule_resource_id, or marketplace_partner_resource_id must be set."
-  }
-}
-
-variable "managed_diagnostic_settings_enabled" {
-  type        = bool
-  description = "Whether the module creates default diagnostic settings for the Function App and Storage Account resources to the module-managed or supplied Log Analytics workspace. When `diagnostic_settings` is set, those Function App settings are used instead of the default. Defaults to `true` for enterprise auditability."
-  default     = true
-  nullable    = false
-}
-
 variable "private_endpoints_manage_dns_zone_group" {
   type        = bool
   description = "Whether to manage private DNS zone groups for private endpoints with this module. If false, private DNS records must be managed externally."
@@ -758,7 +708,7 @@ variable "log_analytics_workspace" {
   description = <<DESCRIPTION
 Controls the Log Analytics workspace used by Application Insights.
 
-- `resource_id` - (Optional) The resource ID of an existing Log Analytics workspace to use for Application Insights and managed diagnostic settings. When set, this module does not create a workspace.
+- `resource_id` - (Optional) The resource ID of an existing Log Analytics workspace to use for Application Insights. When set, this module does not create a workspace.
 - `name` - (Optional) The name of the Log Analytics workspace. When unset, the module generates a CAF-aligned name using the `log` prefix.
 - `retention_in_days` - (Optional) The workspace retention period in days when the module creates the workspace. Defaults to `30`.
 - `tags` - (Optional) Tags to apply to the module-created Log Analytics workspace. When unset, `var.tags` is inherited.
@@ -1013,7 +963,7 @@ variable "acmebot" {
   description = <<DESCRIPTION
 Controls Acmebot workload configuration. This object is sensitive because DNS provider credentials, webhook URLs, and external account binding secrets are passed to the Function App as application settings and stored in Terraform state.
 
-- `version` - (Required) The Acmebot package version to deploy. Must be a Semantic Versioning 2.0.0 version, such as `5.0.1`, `5.0.1-beta.1`, or `5.0.1+build.5`, and must match a published release. Pick an existing version from the [Acmebot releases](https://github.com/shibayan/keyvault-acmebot/releases) (use the release tag without the leading `v`); validation only checks the format, so an unpublished version fails at deploy time. This module requires the Flex Consumption package layout published under `v5` and later.
+- `version` - (Required) The Acmebot package version to deploy. Must be a Semantic Versioning 2.0.0 version, such as `5.0.1`, `5.0.1-beta.1`, or `5.0.1+build.5`, and must match a published release. Pick an existing version from the [Acmebot releases](https://github.com/polymind-inc/acmebot/releases) (use the release tag without the leading `v`, which maps to the `acmebot.zip` asset under `v<version>`); validation only checks the format, so an unpublished version fails at deploy time. This module requires the Flex Consumption package layout published under `v5` and later.
 - `mail_address` - (Required) The email address for the ACME account, without the `mailto:` prefix.
 - `vault_uri` - (Required) The Key Vault URI where issued certificates are stored.
 - `acme_endpoint` - (Optional) The certification authority ACME endpoint. Defaults to Let's Encrypt production.
