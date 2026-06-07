@@ -36,11 +36,6 @@ module "storage" {
     }
   }
 
-  diagnostic_settings_blob            = local.storage_service_diagnostic_settings
-  diagnostic_settings_queue           = local.storage_service_diagnostic_settings
-  diagnostic_settings_storage_account = local.storage_account_diagnostic_settings
-  diagnostic_settings_table           = local.storage_service_diagnostic_settings
-
   private_endpoints_manage_dns_zone_group = var.private_endpoints_manage_dns_zone_group
 
   private_endpoints = {
@@ -176,9 +171,8 @@ module "this" {
   private_endpoints_inherit_lock          = true
   private_endpoints                       = var.private_endpoints
 
-  role_assignments    = var.role_assignments
-  diagnostic_settings = local.function_app_diagnostic_settings
-  lock                = var.lock
+  role_assignments = var.role_assignments
+  lock             = var.lock
 
   depends_on = [
     module.storage,

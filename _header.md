@@ -2,7 +2,7 @@
 
 Deploy Azure Acmebot on Azure Functions Flex Consumption with managed identity
 storage access, optional private networking, optional App Service Authentication,
-and managed diagnostics.
+and managed observability resources.
 
 This module uses an AzAPI-first implementation with Azure Verified Module
 (AVM)-aligned interface patterns. It is published in the Terraform Registry under
@@ -155,9 +155,6 @@ Runnable examples are available under [`examples`](examples):
 
 ### Operations
 
-- Default diagnostic settings are created for the Function App and Storage Account
-  resources. Set `managed_diagnostic_settings_enabled = false` to manage
-  diagnostics externally.
 - Set `log_analytics_workspace.resource_id` and/or
   `application_insights.resource_id` to reuse existing monitoring resources.
 - Child resources inherit `var.tags` by default and support child-specific tag
@@ -165,7 +162,6 @@ Runnable examples are available under [`examples`](examples):
 - Child resource settings can be overridden with `storage_account`,
   `deployment_container`, `service_plan`, `log_analytics_workspace`, and
   `application_insights`.
-- AVM-style `diagnostic_settings`, `lock`, `managed_identities`,
-  `role_assignments`, and `private_endpoints` inputs can apply diagnostics,
-  resource locks, managed identities, RBAC assignments, and Private Endpoints to
-  the Function App.
+- AVM-style `lock`, `managed_identities`, `role_assignments`, and
+  `private_endpoints` inputs can apply resource locks, managed identities, RBAC
+  assignments, and Private Endpoints to the Function App.

@@ -3,7 +3,7 @@
 
 Deploy Azure Acmebot on Azure Functions Flex Consumption with managed identity
 storage access, optional private networking, optional App Service Authentication,
-and managed diagnostics.
+and managed observability resources.
 
 This module uses an AzAPI-first implementation with Azure Verified Module
 (AVM)-aligned interface patterns. It is published in the Terraform Registry under
@@ -156,9 +156,6 @@ Runnable examples are available under [`examples`](examples):
 
 ### Operations
 
-- Default diagnostic settings are created for the Function App and Storage Account
-  resources. Set `managed_diagnostic_settings_enabled = false` to manage
-  diagnostics externally.
 - Set `log_analytics_workspace.resource_id` and/or
   `application_insights.resource_id` to reuse existing monitoring resources.
 - Child resources inherit `var.tags` by default and support child-specific tag
@@ -166,10 +163,9 @@ Runnable examples are available under [`examples`](examples):
 - Child resource settings can be overridden with `storage_account`,
   `deployment_container`, `service_plan`, `log_analytics_workspace`, and
   `application_insights`.
-- AVM-style `diagnostic_settings`, `lock`, `managed_identities`,
-  `role_assignments`, and `private_endpoints` inputs can apply diagnostics,
-  resource locks, managed identities, RBAC assignments, and Private Endpoints to
-  the Function App.
+- AVM-style `lock`, `managed_identities`, `role_assignments`, and
+  `private_endpoints` inputs can apply resource locks, managed identities, RBAC
+  assignments, and Private Endpoints to the Function App.
 
 <!-- markdownlint-disable MD033 -->
 ## Requirements
@@ -415,40 +411,6 @@ object({
 
 Default: `{}`
 
-### <a name="input_diagnostic_settings"></a> [diagnostic\_settings](#input\_diagnostic\_settings)
-
-Description: A map of diagnostic settings to create on the Function App. The map key is deliberately arbitrary to avoid issues where map keys may be unknown at plan time.
-
-- `name` - (Optional) The name of the diagnostic setting. One will be generated if not set.
-- `log_categories` - (Optional) A set of log categories to send to the destination.
-- `log_groups` - (Optional) A set of log category groups to send to the destination. Defaults to `["allLogs"]`.
-- `metric_categories` - (Optional) A set of metric categories to send to the destination. Defaults to `["AllMetrics"]`.
-- `log_analytics_destination_type` - (Optional) The destination table type for Log Analytics. Possible values are `Dedicated` and `AzureDiagnostics`. Defaults to `Dedicated`.
-- `workspace_resource_id` - (Optional) The resource ID of the Log Analytics workspace destination.
-- `storage_account_resource_id` - (Optional) The resource ID of the Storage Account destination.
-- `event_hub_authorization_rule_resource_id` - (Optional) The resource ID of the Event Hub authorization rule destination.
-- `event_hub_name` - (Optional) The Event Hub name. When unset, the default Event Hub is used.
-- `marketplace_partner_resource_id` - (Optional) The full ARM resource ID of the Marketplace partner destination.
-
-Type:
-
-```hcl
-map(object({
-    name                                     = optional(string, null)
-    log_categories                           = optional(set(string), [])
-    log_groups                               = optional(set(string), ["allLogs"])
-    metric_categories                        = optional(set(string), ["AllMetrics"])
-    log_analytics_destination_type           = optional(string, "Dedicated")
-    workspace_resource_id                    = optional(string, null)
-    storage_account_resource_id              = optional(string, null)
-    event_hub_authorization_rule_resource_id = optional(string, null)
-    event_hub_name                           = optional(string, null)
-    marketplace_partner_resource_id          = optional(string, null)
-  }))
-```
-
-Default: `{}`
-
 ### <a name="input_enable_telemetry"></a> [enable\_telemetry](#input\_enable\_telemetry)
 
 Description: Whether to enable AVM telemetry on the underlying Azure Verified Modules consumed by this module. When `true`, the value is forwarded to every AVM child module's `enable_telemetry` input. Defaults to `false` because this module is a community pattern and is not an official Azure Verified Module; consumers must opt in explicitly to send telemetry through the AVM `modtm` provider.
@@ -495,7 +457,7 @@ Default: `null`
 
 Description: Controls the Log Analytics workspace used by Application Insights.
 
-- `resource_id` - (Optional) The resource ID of an existing Log Analytics workspace to use for Application Insights and managed diagnostic settings. When set, this module does not create a workspace.
+- `resource_id` - (Optional) The resource ID of an existing Log Analytics workspace to use for Application Insights. When set, this module does not create a workspace.
 - `name` - (Optional) The name of the Log Analytics workspace. When unset, the module generates a CAF-aligned name using the `log` prefix.
 - `retention_in_days` - (Optional) The workspace retention period in days when the module creates the workspace. Defaults to `30`.
 - `tags` - (Optional) Tags to apply to the module-created Log Analytics workspace. When unset, `var.tags` is inherited.
@@ -512,14 +474,6 @@ object({
 ```
 
 Default: `{}`
-
-### <a name="input_managed_diagnostic_settings_enabled"></a> [managed\_diagnostic\_settings\_enabled](#input\_managed\_diagnostic\_settings\_enabled)
-
-Description: Whether the module creates default diagnostic settings for the Function App and Storage Account resources to the module-managed or supplied Log Analytics workspace. When `diagnostic_settings` is set, those Function App settings are used instead of the default. Defaults to `true` for enterprise auditability.
-
-Type: `bool`
-
-Default: `true`
 
 ### <a name="input_managed_identities"></a> [managed\_identities](#input\_managed\_identities)
 

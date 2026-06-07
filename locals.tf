@@ -48,8 +48,7 @@ locals {
   storage_primary_endpoints      = nonsensitive(module.storage.resource.output.properties.primaryEndpoints)
   storage_container_endpoint_url = "${local.storage_primary_endpoints.blob}${local.deployment_container_name}"
 
-  acmebot_major_version = "v${split(".", var.acmebot.version)[0]}"
-  acmebot_package_uri   = "https://stacmebotprod.blob.core.windows.net/acmebot/${local.acmebot_major_version}/${var.acmebot.version}.zip"
+  acmebot_package_uri = "https://github.com/polymind-inc/acmebot/releases/download/v${var.acmebot.version}/acmebot.zip"
 
   create_log_analytics_workspace = var.log_analytics_workspace.resource_id == null && var.application_insights.resource_id == null
   log_analytics_workspace_resource_id = (
@@ -179,45 +178,6 @@ locals {
     local.acmebot_app_settings,
     local.auth_app_settings,
   )
-
-  function_app_diagnostic_settings = var.managed_diagnostic_settings_enabled && length(var.diagnostic_settings) == 0 ? {
-    default = {
-      workspace_resource_id = local.log_analytics_workspace_resource_id
-    }
-  } : var.diagnostic_settings
-
-  storage_account_diagnostic_settings = var.managed_diagnostic_settings_enabled ? {
-    default = {
-      workspace_resource_id = local.log_analytics_workspace_resource_id
-      metrics = [
-        {
-          category = "Transaction"
-        }
-      ]
-    }
-  } : {}
-
-  storage_service_diagnostic_settings = var.managed_diagnostic_settings_enabled ? {
-    default = {
-      workspace_resource_id = local.log_analytics_workspace_resource_id
-      logs = [
-        {
-          category = "StorageRead"
-        },
-        {
-          category = "StorageWrite"
-        },
-        {
-          category = "StorageDelete"
-        },
-      ]
-      metrics = [
-        {
-          category = "Transaction"
-        }
-      ]
-    }
-  } : {}
 
   auth_settings_v2 = var.auth_settings != null ? {
     auth_enabled                  = var.auth_settings.enabled
