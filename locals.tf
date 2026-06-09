@@ -13,7 +13,7 @@ locals {
   site_config_scm_use_main_ip_restriction       = coalesce(var.site_config.scm_use_main_ip_restriction, true)
   site_config_vnet_route_all_enabled            = coalesce(var.site_config.vnet_route_all_enabled, var.virtual_network_subnet_id != null)
 
-  storage_uses_user_assigned_identity = var.storage_managed_identity.user_assigned_resource_id != null
+  storage_uses_user_assigned_identity = var.managed_identities.system_assigned == false ? true : var.storage_managed_identity.user_assigned_resource_id != null
   storage_authentication_type         = local.storage_uses_user_assigned_identity ? "UserAssignedIdentity" : "SystemAssignedIdentity"
   storage_managed_identity_client_id  = local.storage_uses_user_assigned_identity ? data.azapi_resource.storage_user_assigned_identity[0].output.properties.clientId : null
   storage_managed_identity_principal_id = local.storage_uses_user_assigned_identity ? (

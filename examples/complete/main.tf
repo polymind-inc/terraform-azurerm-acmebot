@@ -219,16 +219,19 @@ module "acmebot" {
 
     private_endpoints = {
       blob = {
+        name                          = "pep-st-blob-acmebot-${random_string.random.result}"
         subnet_resource_id            = azurerm_subnet.private_endpoints.id
         subresource_name              = "blob"
         private_dns_zone_resource_ids = [azurerm_private_dns_zone.default["blob"].id]
       }
       queue = {
+        name                          = "pep-st-queue-acmebot-${random_string.random.result}"
         subnet_resource_id            = azurerm_subnet.private_endpoints.id
         subresource_name              = "queue"
         private_dns_zone_resource_ids = [azurerm_private_dns_zone.default["queue"].id]
       }
       table = {
+        name                          = "pep-st-table-acmebot-${random_string.random.result}"
         subnet_resource_id            = azurerm_subnet.private_endpoints.id
         subresource_name              = "table"
         private_dns_zone_resource_ids = [azurerm_private_dns_zone.default["table"].id]
@@ -255,6 +258,7 @@ module "acmebot" {
 
   lock = {
     kind = "CanNotDelete"
+    name = "lock-${local.function_app_name}"
   }
 
   auth_settings = {
