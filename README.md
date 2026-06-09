@@ -705,7 +705,7 @@ Description: Controls the Storage Account used by the Function App deployment pa
 - `private_endpoints.network_interface_name` - (Optional) The private endpoint network interface name.
 - `private_endpoints.location` - (Optional) The private endpoint location. Defaults to `var.location`.
 - `private_endpoints.resource_group_name` - (Optional) The private endpoint resource group name. Defaults to the parent resource group.
-- `private_endpoints.lock` - (Optional) The lock to apply to this private endpoint. When unset, `var.lock` is inherited.
+- `private_endpoints.lock` - (Optional) The lock to apply to this private endpoint. When unset, no lock is applied.
 - `private_endpoints.tags` - (Optional) Tags to apply to the private endpoint. When unset, `var.tags` is inherited.
 - `private_endpoints.ip_configurations` - (Optional) A map of static IP configurations for the private endpoint.
 - `private_endpoints.role_assignments` - (Optional) A map of role assignments to create on this private endpoint.

@@ -39,13 +39,11 @@ module "storage" {
   private_endpoints_manage_dns_zone_group = var.private_endpoints_manage_dns_zone_group
 
   private_endpoints = {
-    for key, pe in var.storage_account.private_endpoints : key => merge(pe, {
-      lock = pe.lock != null ? pe.lock : var.lock
-    })
+    for key, pe in var.storage_account.private_endpoints : key => pe
   }
 
   role_assignments = {}
-  lock             = var.lock
+  lock             = null
 }
 
 module "serverfarm" {
