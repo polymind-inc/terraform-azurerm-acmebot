@@ -165,3 +165,36 @@ Runnable examples are available under [`examples`](examples):
 - AVM-style `lock`, `managed_identities`, `role_assignments`, and
   `private_endpoints` inputs can apply resource locks, managed identities, RBAC
   assignments, and Private Endpoints to the Function App.
+
+### Compliance Considerations
+
+This module can support technical controls for information security frameworks
+such as ISO/IEC 27001, but it does not provide or guarantee certification by
+itself. ISO/IEC 27001 certification depends on the consumer's ISMS scope, risk
+assessment, operating procedures, evidence collection, and independent audit.
+
+Microsoft Azure services undergo independent third-party audits for ISO/IEC
+27001. See the
+[Azure ISO/IEC 27001 compliance documentation](https://learn.microsoft.com/azure/compliance/offerings/offering-iso-27001)
+for current Microsoft audit scope, reports, and customer responsibility
+guidance.
+
+For a security-focused deployment baseline, start from the
+[`complete`](examples/complete) example and keep the following controls enabled
+or implemented in the surrounding platform:
+
+- Disable public network access for the Function App, Storage Account, and Key
+  Vault; use Private Endpoints and private DNS for data-plane access.
+- Use managed identities and RBAC for Azure resource access; avoid long-lived
+  secrets where the upstream Acmebot provider supports identity-based access.
+- Enable App Service Authentication and require the appropriate Microsoft Entra
+  users, groups, or app roles for administrative access.
+- Send application, platform, and resource diagnostic logs to Log Analytics or a
+  central SIEM with retention aligned to the organization's audit policy.
+- Protect Terraform state with encryption, least-privilege access, versioning,
+  and operational controls because sensitive application settings are stored in
+  state.
+- Apply organization-level guardrails such as Azure Policy regulatory
+  compliance initiatives, Microsoft Defender for Cloud, privileged access
+  management, periodic access reviews, incident response procedures, and backup
+  or recovery testing.
