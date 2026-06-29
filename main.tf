@@ -204,24 +204,42 @@ resource "azapi_resource" "storage_account_function_app_role_assignment" {
   response_export_values = []
 }
 
-resource "azapi_resource" "deployment" {
-  name      = "onedeploy"
-  parent_id = module.this.resource_id
-  type      = "Microsoft.Web/sites/extensions@2025-03-01"
+resource "terraform_data" "deployment_package" {
+  triggers_replace = {
+    package_uri = nonsensitive(local.acmebot_package_uri)
+  }
+}
+
+resource "azapi_resource_action" "deployment" {
+  type        = "Microsoft.Web/sites@2025-03-01"
+  resource_id = module.this.resource_id
+  action      = "extensions/onedeploy"
+  method      = "PUT"
 
   body = {
     properties = {
-      type        = "zip"
-      packageUri  = local.acmebot_package_uri
-      remoteBuild = false
+      type       = "zip"
+      packageUri = nonsensitive(local.acmebot_package_uri)
     }
   }
 
-  schema_validation_enabled = false
+  response_export_values = []
+
+  retry = {
+    error_message_regex = [
+      "Cannot modify this site because another operation is in progress",
+    ]
+  }
 
   depends_on = [
     azapi_resource.storage_account_function_app_role_assignment,
   ]
+
+  lifecycle {
+    replace_triggered_by = [
+      terraform_data.deployment_package,
+    ]
+  }
 }
 
 data "azapi_resource_action" "function_host_keys" {
@@ -234,6 +252,6 @@ data "azapi_resource_action" "function_host_keys" {
   response_export_values = ["functionKeys"]
 
   depends_on = [
-    azapi_resource.deployment,
+    azapi_resource_action.deployment,
   ]
 }
