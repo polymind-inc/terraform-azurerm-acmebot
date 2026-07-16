@@ -204,7 +204,14 @@ resource "azapi_resource" "storage_account_function_app_role_assignment" {
   response_export_values = []
 }
 
+moved {
+  from = azapi_resource.deployment
+  to   = azapi_resource.deployment[0]
+}
+
 resource "azapi_resource" "deployment" {
+  count = var.skip_package_deployment ? 0 : 1
+
   name      = "onedeploy"
   parent_id = module.this.resource_id
   type      = "Microsoft.Web/sites/extensions@2025-03-01"

@@ -101,6 +101,35 @@ variables {
 
 run "default_inputs_plan_successfully" {
   command = plan
+
+  assert {
+    condition     = length(azapi_resource.deployment) == 1
+    error_message = "The Acmebot package should be deployed by default."
+  }
+}
+
+run "package_deployment_can_be_skipped" {
+  command = plan
+
+  variables {
+    skip_package_deployment = true
+  }
+
+  assert {
+    condition     = length(azapi_resource.deployment) == 0
+    error_message = "The OneDeploy resource should not be planned when package deployment is skipped."
+  }
+}
+
+run "skipped_package_deployment_cannot_export_api_key" {
+  command = plan
+
+  variables {
+    skip_package_deployment = true
+    export_api_key          = true
+  }
+
+  expect_failures = [var.skip_package_deployment]
 }
 
 run "sovereign_environment_plan_successfully" {
