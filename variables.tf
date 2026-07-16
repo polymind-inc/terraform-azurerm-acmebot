@@ -867,6 +867,18 @@ variable "instance_memory_in_mb" {
   }
 }
 
+variable "skip_package_deployment" {
+  type        = bool
+  description = "Whether to skip deploying the Acmebot package through OneDeploy. When true, the package must be deployed out-of-band and export_api_key must be false."
+  default     = false
+  nullable    = false
+
+  validation {
+    condition     = !var.skip_package_deployment || !var.export_api_key
+    error_message = "export_api_key must be false when skip_package_deployment is true because Terraform cannot order the host key lookup after an out-of-band package deployment."
+  }
+}
+
 variable "export_api_key" {
   type        = bool
   description = "Whether to read and export the default function host key as output."

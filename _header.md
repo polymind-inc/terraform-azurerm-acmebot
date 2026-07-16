@@ -155,6 +155,24 @@ Runnable examples are available under [`examples`](examples):
 
 ### Operations
 
+- Azure Functions Flex Consumption currently returns a corrupted OneDeploy ARM
+  response, causing `azapi_resource.deployment` to fail even when the package is
+  deployed successfully. Set `skip_package_deployment = true` to omit OneDeploy
+  from Terraform and deploy the package out-of-band. `export_api_key` must remain
+  `false` in this mode because Terraform cannot order the host key lookup after
+  an external deployment.
+- The following command shows how to deploy the package after Terraform creates
+  the Function App. Replace the placeholders with the module output and desired
+  Acmebot version. The Azure CLI may still report the response parsing error;
+  verify the resulting deployment separately until the Azure platform issue is
+  resolved.
+
+  ```bash
+  az rest --method PUT \
+    --url "https://management.azure.com<function-app-resource-id>/extensions/onedeploy?api-version=2025-03-01" \
+    --body '{"properties":{"type":"zip","packageUri":"https://github.com/polymind-inc/acmebot/releases/download/v<version>/acmebot.zip","remoteBuild":false}}'
+  ```
+
 - Set `log_analytics_workspace.resource_id` and/or
   `application_insights.resource_id` to reuse existing monitoring resources.
 - Child resources inherit `var.tags` by default and support child-specific tag
