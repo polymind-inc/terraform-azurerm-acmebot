@@ -83,7 +83,7 @@ resource "azapi_resource" "log_analytics_workspace" {
 }
 
 resource "azapi_resource" "application_insights" {
-  count = var.application_insights.resource_id == null ? 1 : 0
+  count = local.create_application_insights ? 1 : 0
 
   name      = coalesce(var.application_insights.name, "appi-${var.name}")
   location  = var.location
@@ -103,7 +103,7 @@ resource "azapi_resource" "application_insights" {
 }
 
 data "azapi_resource" "application_insights" {
-  count = var.application_insights.resource_id != null ? 1 : 0
+  count = local.create_application_insights ? 0 : 1
 
   type                   = "Microsoft.Insights/components@2020-02-02"
   resource_id            = var.application_insights.resource_id

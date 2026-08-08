@@ -176,6 +176,17 @@ Runnable examples are available under [`examples`](examples):
 
 - Set `log_analytics_workspace.resource_id` and/or
   `application_insights.resource_id` to reuse existing monitoring resources.
+- When `application_insights.resource_id` comes from a resource created in the
+  same Terraform operation, set `application_insights.create = false` so the
+  module can determine resource counts during planning.
+
+  ```hcl
+  application_insights = {
+    create      = false
+    resource_id = azapi_resource.application_insights.id
+  }
+  ```
+
 - Child resources inherit `var.tags` by default and support child-specific tag
   overrides where Azure supports tags.
 - Child resource settings can be overridden with `storage_account`,
@@ -400,6 +411,7 @@ Default: `{}`
 
 Description: Controls the Application Insights component connected to the Function App.
 
+- `create` - (Optional) Whether this module creates the Application Insights component. By default, this is inferred from `resource_id`. Set this to `false` when `resource_id` is unknown until apply.
 - `resource_id` - (Optional) The resource ID of an existing Application Insights component. When set, this module does not create an Application Insights component.
 - `name` - (Optional) The name of the Application Insights component. When unset, the module generates a CAF-aligned name using the `appi` prefix.
 - `tags` - (Optional) Tags to apply to the module-created Application Insights component. When unset, `var.tags` is inherited.
@@ -408,6 +420,7 @@ Type:
 
 ```hcl
 object({
+    create      = optional(bool, null)
     resource_id = optional(string, null)
     name        = optional(string, null)
     tags        = optional(map(string), null)

@@ -75,7 +75,7 @@ jobs:
         terraform_version: ${{ env.TERRAFORM_VERSION }}
 
     - name: Initialize Terraform
-      run: terraform init -backend=false
+      run: terraform init -backend=false -test-directory=tests/unit
 
     - name: Run unit tests
       run: terraform test -test-directory=tests/unit
