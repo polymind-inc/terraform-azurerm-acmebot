@@ -175,6 +175,17 @@ Runnable examples are available under [`examples`](examples):
 
 - Set `log_analytics_workspace.resource_id` and/or
   `application_insights.resource_id` to reuse existing monitoring resources.
+- When `application_insights.resource_id` comes from a resource created in the
+  same Terraform operation, set `application_insights.create = false` so the
+  module can determine resource counts during planning.
+
+  ```hcl
+  application_insights = {
+    create      = false
+    resource_id = azapi_resource.application_insights.id
+  }
+  ```
+
 - Child resources inherit `var.tags` by default and support child-specific tag
   overrides where Azure supports tags.
 - Child resource settings can be overridden with `storage_account`,

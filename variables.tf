@@ -737,6 +737,7 @@ DESCRIPTION
 
 variable "application_insights" {
   type = object({
+    create      = optional(bool, null)
     resource_id = optional(string, null)
     name        = optional(string, null)
     tags        = optional(map(string), null)
@@ -744,6 +745,7 @@ variable "application_insights" {
   description = <<DESCRIPTION
 Controls the Application Insights component connected to the Function App.
 
+- `create` - (Optional) Whether this module creates the Application Insights component. By default, this is inferred from `resource_id`. Set this to `false` when `resource_id` is unknown until apply.
 - `resource_id` - (Optional) The resource ID of an existing Application Insights component. When set, this module does not create an Application Insights component.
 - `name` - (Optional) The name of the Application Insights component. When unset, the module generates a CAF-aligned name using the `appi` prefix.
 - `tags` - (Optional) Tags to apply to the module-created Application Insights component. When unset, `var.tags` is inherited.
@@ -757,6 +759,14 @@ DESCRIPTION
       var.application_insights.resource_id
     ))
     error_message = "application_insights.resource_id must be a valid Application Insights component resource ID."
+  }
+
+  validation {
+    condition = (
+      var.application_insights.create == null ||
+      var.application_insights.create == (var.application_insights.resource_id == null)
+    )
+    error_message = "application_insights.create must be true when resource_id is null and false when resource_id is set."
   }
 
   validation {

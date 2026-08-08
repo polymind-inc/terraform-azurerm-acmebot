@@ -5,7 +5,7 @@
 Unit tests use the native `terraform test` framework with mocked providers. They focus on variable validation and plan-time wiring, and do not require Azure credentials.
 
 ```bash
-terraform init -backend=false
+terraform init -backend=false -test-directory=tests/unit
 terraform test -test-directory=tests/unit
 ```
 

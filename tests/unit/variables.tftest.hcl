@@ -447,6 +447,57 @@ run "existing_application_insights_without_workspace_plans_successfully" {
   }
 }
 
+run "application_insights_create_false_selects_existing_component" {
+  command = plan
+
+  variables {
+    application_insights = {
+      create      = false
+      resource_id = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg-observability/providers/Microsoft.Insights/components/appi-acmebot"
+    }
+  }
+
+  assert {
+    condition     = length(azapi_resource.application_insights) == 0
+    error_message = "The module should not create Application Insights when application_insights.create is false."
+  }
+
+  assert {
+    condition     = length(data.azapi_resource.application_insights) == 1
+    error_message = "The module should read the supplied Application Insights component when application_insights.create is false."
+  }
+
+  assert {
+    condition     = length(azapi_resource.log_analytics_workspace) == 0
+    error_message = "The module should obtain the workspace from the supplied Application Insights component."
+  }
+}
+
+run "application_insights_create_false_requires_resource_id" {
+  command = plan
+
+  variables {
+    application_insights = {
+      create = false
+    }
+  }
+
+  expect_failures = [var.application_insights]
+}
+
+run "application_insights_create_true_rejects_resource_id" {
+  command = plan
+
+  variables {
+    application_insights = {
+      create      = true
+      resource_id = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg-observability/providers/Microsoft.Insights/components/appi-acmebot"
+    }
+  }
+
+  expect_failures = [var.application_insights]
+}
+
 run "lock_kind_must_be_allowed_value" {
   command = plan
 

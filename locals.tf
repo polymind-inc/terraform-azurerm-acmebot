@@ -50,14 +50,18 @@ locals {
 
   acmebot_package_uri = "https://github.com/polymind-inc/acmebot/releases/download/v${var.acmebot.version}/acmebot.zip"
 
-  create_log_analytics_workspace = var.log_analytics_workspace.resource_id == null && var.application_insights.resource_id == null
+  create_application_insights = coalesce(
+    var.application_insights.create,
+    var.application_insights.resource_id == null,
+  )
+  create_log_analytics_workspace = local.create_application_insights ? var.log_analytics_workspace.resource_id == null : false
   log_analytics_workspace_resource_id = (
     var.log_analytics_workspace.resource_id != null ? var.log_analytics_workspace.resource_id :
     local.create_log_analytics_workspace ? azapi_resource.log_analytics_workspace[0].id :
     data.azapi_resource.application_insights[0].output.properties.WorkspaceResourceId
   )
-  application_insights_connection_string   = var.application_insights.resource_id != null ? data.azapi_resource.application_insights[0].output.properties.ConnectionString : azapi_resource.application_insights[0].output.properties.ConnectionString
-  application_insights_instrumentation_key = var.application_insights.resource_id != null ? data.azapi_resource.application_insights[0].output.properties.InstrumentationKey : azapi_resource.application_insights[0].output.properties.InstrumentationKey
+  application_insights_connection_string   = local.create_application_insights ? azapi_resource.application_insights[0].output.properties.ConnectionString : data.azapi_resource.application_insights[0].output.properties.ConnectionString
+  application_insights_instrumentation_key = local.create_application_insights ? azapi_resource.application_insights[0].output.properties.InstrumentationKey : data.azapi_resource.application_insights[0].output.properties.InstrumentationKey
 
   acmebot_use_system_name_server = var.acmebot.use_system_name_server != null ? var.acmebot.use_system_name_server : (
     var.virtual_network_subnet_id != null || var.acmebot.environment != "AzureCloud"
