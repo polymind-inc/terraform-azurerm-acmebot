@@ -431,31 +431,52 @@ Default: `{}`
 
 ### <a name="input_auth_settings"></a> [auth\_settings](#input\_auth\_settings)
 
-Description: Controls App Service Authentication for the Function App. The client secret is supplied separately via `var.auth_settings_client_secret`.
+Description: Controls App Service Authentication for the Function App. The client secret is supplied separately via `var.auth_settings_client_secrets`.
 
 - `enabled` - (Required) Whether App Service Authentication is enabled.
-- `active_directory.client_id` - (Required) The Microsoft Entra application client ID.
-- `active_directory.tenant_auth_endpoint` - (Required) The tenant-specific Microsoft Entra authorization endpoint.
+- `default_provider` - (Optional) The default authentication provider. Defaults to `azureactivedirectory`. Possible values are `azureactivedirectory` or the name of a custom OpenID Connect provider.
+- `active_directory.enabled` - (Optional) Whether to enable Microsoft Entra authentication. Defaults to `true`. When `false`, the Microsoft Entra provider is not configured and the `active_directory.client_id` and `active_directory.tenant_auth_endpoint` values are ignored.
+- `active_directory.client_id` - (Required when `active_directory` is set) The Microsoft Entra application client ID.
+- `active_directory.tenant_auth_endpoint` - (Required when `active_directory` is set) The tenant-specific Microsoft Entra authorization endpoint.
+- `custom_open_id_connect_providers.name` - (Required for each custom provider) The name of a custom OpenID Connect provider.
+- `custom_open_id_connect_providers.client_id` - (Required for each custom provider) The custom OpenID Connect application client ID.
+- `custom_open_id_connect_providers.well_known_open_id_configuration` - (Required for each custom provider) The well-known OpenID Connect configuration URL for the custom provider.
 
 Type:
 
 ```hcl
 object({
-    enabled = bool
-    active_directory = object({
+    enabled          = bool
+    default_provider = optional(string, "azureactivedirectory")
+    active_directory = optional(object({
+      enabled              = optional(bool, true)
       client_id            = string
       tenant_auth_endpoint = string
-    })
+    }), null)
+    custom_open_id_connect_providers = optional(list(object({
+      name                             = string
+      client_id                        = string
+      well_known_open_id_configuration = string
+    })), [])
   })
 ```
 
 Default: `null`
 
-### <a name="input_auth_settings_client_secret"></a> [auth\_settings\_client\_secret](#input\_auth\_settings\_client\_secret)
+### <a name="input_auth_settings_client_secrets"></a> [auth\_settings\_client\_secrets](#input\_auth\_settings\_client\_secrets)
 
-Description: The Microsoft Entra application client secret used by App Service Authentication. Required when `var.auth_settings` is set. The value is wired to the Function App as the `MICROSOFT_PROVIDER_AUTHENTICATION_SECRET` app setting and stored in Terraform state.
+Description:   The client secret used by App Service Authentication. Required when `var.auth_settings` is set.   
+  In the case of `microsoft_entra`, the value is wired to the Function App as the `MICROSOFT_PROVIDER_AUTHENTICATION_SECRET` app setting and stored in Terraform state."  
+  In the case of `custom_open_id_connect_providers`, the map key is the name of the custom provider and the value is the client secret. A variable `${provider_name}_AUTHENTICATION_SECRET` is created for each custom provider.
 
-Type: `string`
+Type:
+
+```hcl
+object({
+    microsoft_entra                  = optional(string, null)
+    custom_open_id_connect_providers = optional(map(string), {})
+  })
+```
 
 Default: `null`
 
