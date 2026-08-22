@@ -206,8 +206,12 @@ locals {
           open_id_issuer             = var.auth_settings.active_directory.tenant_auth_endpoint
         }
         } : {
-        enabled      = false
-        registration = null
+        enabled = false
+        registration = {
+          client_id                  = null
+          client_secret_setting_name = null
+          open_id_issuer             = null
+        }
       }
       custom_open_id_connect_providers = {
         for provider in var.auth_settings.custom_open_id_connect_providers : provider.name => {
