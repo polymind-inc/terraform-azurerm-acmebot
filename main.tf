@@ -8,7 +8,7 @@ resource "random_string" "deployment_container_suffix" {
 
 module "storage" {
   source  = "Azure/avm-res-storage-storageaccount/azurerm"
-  version = "~> 0.8.0"
+  version = "~> 0.9.0"
 
   name             = local.storage_account_name
   location         = var.location
