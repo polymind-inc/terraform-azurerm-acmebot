@@ -236,7 +236,7 @@ The following requirements are needed by this module:
 
 - <a name="requirement_terraform"></a> [terraform](#requirement\_terraform) (>= 1.10.0, < 2.0.0)
 
-- <a name="requirement_azapi"></a> [azapi](#requirement\_azapi) (>= 2.9.0, < 3.0.0)
+- <a name="requirement_azapi"></a> [azapi](#requirement\_azapi) (>= 2.11.0, < 3.0.0)
 
 - <a name="requirement_modtm"></a> [modtm](#requirement\_modtm) (~> 0.3)
 
@@ -246,7 +246,7 @@ The following requirements are needed by this module:
 
 The following providers are used by this module:
 
-- <a name="provider_azapi"></a> [azapi](#provider\_azapi) (>= 2.9.0, < 3.0.0)
+- <a name="provider_azapi"></a> [azapi](#provider\_azapi) (>= 2.11.0, < 3.0.0)
 
 - <a name="provider_random"></a> [random](#provider\_random) (>= 3.5.0, < 4.0.0)
 
@@ -960,7 +960,7 @@ Version: ~> 2.0
 
 Source: Azure/avm-res-storage-storageaccount/azurerm
 
-Version: ~> 0.8.0
+Version: ~> 0.9.0
 
 ### <a name="module_this"></a> [this](#module\_this)
 
