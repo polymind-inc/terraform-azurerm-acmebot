@@ -75,7 +75,7 @@ locals {
       "Acmebot__Environment"         = var.acmebot.environment
       "Acmebot__RenewBeforeExpiry"   = tostring(var.acmebot.renew_before_expiry)
       "Acmebot__UseSystemNameServer" = tostring(local.acmebot_use_system_name_server)
-      "Acmebot__AppRoleRequired"     = tostring(var.acmebot.app_role_required)
+      "Acmebot__RequireAppRoles"     = tostring(var.acmebot.app_role_required)
     },
     var.acmebot.external_account_binding != null ? {
       "Acmebot__ExternalAccountBinding__KeyId"     = var.acmebot.external_account_binding.key_id
