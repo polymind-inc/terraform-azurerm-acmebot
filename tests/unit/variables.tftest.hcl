@@ -108,6 +108,35 @@ run "default_inputs_plan_successfully" {
   }
 }
 
+run "app_roles_can_be_required" {
+  command = plan
+
+  variables {
+    acmebot = {
+      version           = "5.0.1"
+      mail_address      = "test@example.com"
+      vault_uri         = "https://kv-acmebot-test.vault.azure.net/"
+      app_role_required = true
+
+      dns_providers = {
+        azure_dns = {
+          subscription_id = "00000000-0000-0000-0000-000000000000"
+        }
+      }
+    }
+  }
+
+  assert {
+    condition     = local.acmebot_app_settings["Acmebot__RequireAppRoles"] == "true"
+    error_message = "App role enforcement should use Acmebot's RequireAppRoles setting."
+  }
+
+  assert {
+    condition     = !contains(keys(local.acmebot_app_settings), "Acmebot__AppRoleRequired")
+    error_message = "The obsolete AppRoleRequired setting should not be emitted."
+  }
+}
+
 run "package_deployment_can_be_skipped" {
   command = plan
 
