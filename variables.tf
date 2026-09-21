@@ -42,31 +42,69 @@ DESCRIPTION
 
 variable "auth_settings" {
   type = object({
-    enabled = bool
-    active_directory = object({
+    enabled          = bool
+    default_provider = optional(string, "azureactivedirectory")
+    active_directory = optional(object({
+      enabled              = optional(bool, true)
       client_id            = string
       tenant_auth_endpoint = string
-    })
+    }), null)
+    custom_open_id_connect_providers = optional(list(object({
+      name                             = string
+      client_id                        = string
+      well_known_open_id_configuration = string
+    })), [])
   })
   description = <<DESCRIPTION
-Controls App Service Authentication for the Function App. The client secret is supplied separately via `var.auth_settings_client_secret`.
+Controls App Service Authentication for the Function App. The client secret is supplied separately via `var.auth_settings_client_secrets`.
 
 - `enabled` - (Required) Whether App Service Authentication is enabled.
-- `active_directory.client_id` - (Required) The Microsoft Entra application client ID.
-- `active_directory.tenant_auth_endpoint` - (Required) The tenant-specific Microsoft Entra authorization endpoint.
+- `default_provider` - (Optional) The default authentication provider. Defaults to `azureactivedirectory`. Possible values are `azureactivedirectory` or the name of a custom OpenID Connect provider.
+- `active_directory.enabled` - (Optional) Whether to enable Microsoft Entra authentication. Defaults to `true`. When `false`, the Microsoft Entra provider is not configured and the `active_directory.client_id` and `active_directory.tenant_auth_endpoint` values are ignored.
+- `active_directory.client_id` - (Required when `active_directory` is set) The Microsoft Entra application client ID.
+- `active_directory.tenant_auth_endpoint` - (Required when `active_directory` is set) The tenant-specific Microsoft Entra authorization endpoint.
+- `custom_open_id_connect_providers.name` - (Required for each custom provider) The name of a custom OpenID Connect provider.
+- `custom_open_id_connect_providers.client_id` - (Required for each custom provider) The custom OpenID Connect application client ID.
+- `custom_open_id_connect_providers.well_known_open_id_configuration` - (Required for each custom provider) The well-known OpenID Connect configuration URL for the custom provider.
 DESCRIPTION
   default     = null
 }
 
-variable "auth_settings_client_secret" {
-  type        = string
+variable "auth_settings_client_secrets" {
+  type = object({
+    microsoft_entra                  = optional(string, null)
+    custom_open_id_connect_providers = optional(map(string), {})
+  })
   default     = null
   sensitive   = true
-  description = "The Microsoft Entra application client secret used by App Service Authentication. Required when `var.auth_settings` is set. The value is wired to the Function App as the `MICROSOFT_PROVIDER_AUTHENTICATION_SECRET` app setting and stored in Terraform state."
+  description = <<DESCRIPTION
+  The client secret used by App Service Authentication. Required when `var.auth_settings` is set. 
+  In the case of `microsoft_entra`, the value is wired to the Function App as the `MICROSOFT_PROVIDER_AUTHENTICATION_SECRET` app setting and stored in Terraform state."
+  In the case of `custom_open_id_connect_providers`, the map key is the name of the custom provider and the value is the client secret. A variable `$${provider_name}_AUTHENTICATION_SECRET` is created for each custom provider.
+  DESCRIPTION
+  validation {
+    condition     = var.auth_settings == null || var.auth_settings_client_secrets != null
+    error_message = "auth_settings_client_secrets must be set when auth_settings is configured."
+  }
 
   validation {
-    condition     = var.auth_settings == null || var.auth_settings_client_secret != null
-    error_message = "auth_settings_client_secret must be set when auth_settings is configured."
+    condition     = var.auth_settings == null || var.auth_settings.active_directory == null || var.auth_settings.active_directory.enabled == false || var.auth_settings_client_secrets.microsoft_entra != null
+    error_message = "auth_settings_client_secrets.microsoft_entra must be set when auth_settings.active_directory is enabled."
+  }
+
+  validation {
+    condition = var.auth_settings == null || (
+      var.auth_settings.custom_open_id_connect_providers == null || length(var.auth_settings.custom_open_id_connect_providers) == 0 || var.auth_settings_client_secrets.custom_open_id_connect_providers != null
+    )
+    error_message = "auth_settings_client_secrets.custom_open_id_connect_providers must be set when custom OpenID Connect providers are configured."
+  }
+  validation {
+    condition = var.auth_settings == null || (
+      var.auth_settings.custom_open_id_connect_providers == null || alltrue([
+        for provider in var.auth_settings.custom_open_id_connect_providers : contains(keys(var.auth_settings_client_secrets.custom_open_id_connect_providers), provider.name)
+      ])
+    )
+    error_message = "auth_settings_client_secrets.custom_open_id_connect_providers must contain a client secret for each custom OpenID Connect provider."
   }
 }
 
