@@ -966,7 +966,7 @@ Version: ~> 0.10.0
 
 Source: Azure/avm-res-web-site/azurerm
 
-Version: ~> 0.22.0
+Version: ~> 0.23.0
 
 ## License
 
