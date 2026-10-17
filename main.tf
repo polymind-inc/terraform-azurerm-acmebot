@@ -112,7 +112,7 @@ data "azapi_resource" "application_insights" {
 
 module "this" {
   source  = "Azure/avm-res-web-site/azurerm"
-  version = "~> 0.23.0"
+  version = "~> 0.24.1"
 
   name             = var.name
   location         = var.location
