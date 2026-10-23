@@ -15,6 +15,13 @@ Use the module from the Terraform Registry. The following example shows the main
 inputs for a private deployment; see the runnable examples for complete
 configurations.
 
+> [!IMPORTANT]
+> Azure Functions Flex Consumption currently returns a corrupted OneDeploy ARM
+> response, so `terraform apply` can fail on the package deployment step even
+> when the package is deployed successfully. Until the platform issue is
+> resolved, set `skip_package_deployment = true` and deploy the package
+> out-of-band as described in [Operations](#operations).
+
 ```hcl
 module "acmebot" {
   source  = "polymind-inc/acmebot/azurerm"
@@ -84,10 +91,10 @@ module "acmebot" {
   }
 
   site_config = {
-    vnet_route_all_enabled             = true
-    ip_restriction_default_action      = "Deny"
-    scm_ip_restriction_default_action  = "Deny"
-    scm_use_main_ip_restriction        = true
+    vnet_route_all_enabled            = true
+    ip_restriction_default_action     = "Deny"
+    scm_ip_restriction_default_action = "Deny"
+    scm_use_main_ip_restriction       = true
   }
 
   log_analytics_workspace = {
@@ -134,6 +141,10 @@ Runnable examples are available under [`examples`](examples):
 - To make Acmebot use a user-assigned identity, attach it through
   `managed_identities.user_assigned_resource_ids` and set
   `acmebot.managed_identity_client_id`.
+- The module does not grant Acmebot access to Key Vault or DNS. Assign the
+  Acmebot identity Key Vault Certificates Officer on the target Key Vault, and
+  DNS Zone Contributor (for `azure_dns`) or Private DNS Zone Contributor (for
+  `azure_private_dns`) on the zones or their resource group.
 - Storage Account shared key authorization is disabled by default. Blob versioning,
   change feed, soft delete, Entra-first portal auth, and infrastructure encryption
   are enabled by default.
@@ -260,6 +271,7 @@ The following resources are used by this module:
 - [azapi_resource.storage_account_function_app_role_assignment](https://registry.terraform.io/providers/Azure/azapi/latest/docs/resources/resource) (resource)
 - [random_string.deployment_container_suffix](https://registry.terraform.io/providers/hashicorp/random/latest/docs/resources/string) (resource)
 - [azapi_resource.application_insights](https://registry.terraform.io/providers/Azure/azapi/latest/docs/data-sources/resource) (data source)
+- [azapi_resource.function_app_identity](https://registry.terraform.io/providers/Azure/azapi/latest/docs/data-sources/resource) (data source)
 - [azapi_resource.storage_user_assigned_identity](https://registry.terraform.io/providers/Azure/azapi/latest/docs/data-sources/resource) (data source)
 - [azapi_resource_action.function_host_keys](https://registry.terraform.io/providers/Azure/azapi/latest/docs/data-sources/resource_action) (data source)
 
@@ -283,7 +295,7 @@ Description: Controls Acmebot workload configuration. This object is sensitive b
 - `renew_before_expiry` - (Optional) Number of days before certificate expiry when scheduled renewal should run. Defaults to `30`.
 - `use_system_name_server` - (Optional) Whether Acmebot uses the system DNS resolver instead of Google Public DNS for challenge verification. Defaults to `true` when `virtual_network_subnet_id` is set or `environment` is a sovereign cloud, and `false` otherwise. Set explicitly to override.
 - `app_role_required` - (Optional) Whether additional app role assignment is required during Microsoft Entra authentication. Defaults to `false`.
-- `managed_identity_client_id` - (Optional) The client ID of the user-assigned managed identity Acmebot should use. When set, the identity must also be attached through `managed_identities.user_assigned_resource_ids`.
+- `managed_identity_client_id` - (Optional) The client ID of the user-assigned managed identity Acmebot should use. When set, the identity must also be attached through `managed_identities.user_assigned_resource_ids`; the client ID is checked against the attached identities after the Function App is created.
 - `external_account_binding` - (Optional) External Account Binding settings for ACME providers that require account binding.
 - `dns_providers` - (Optional) DNS provider settings for Acmebot. Supported providers are `akamai`, `azure_dns`, `azure_private_dns`, `cloudflare`, `custom_dns`, `dns_made_easy`, `gandi_live_dns`, `go_daddy`, `google_dns`, `ionos_dns`, `ovh`, `power_dns`, `regfish`, `route_53`, `trans_ip`, and `united_domains`.
 
@@ -433,7 +445,7 @@ Default: `{}`
 
 Description: Controls App Service Authentication for the Function App. The client secret is supplied separately via `var.auth_settings_client_secret`.
 
-- `enabled` - (Required) Whether App Service Authentication is enabled.
+- `enabled` - (Required) Whether App Service Authentication is enabled. When `true`, `var.auth_settings_client_secret` is required.
 - `active_directory.client_id` - (Required) The Microsoft Entra application client ID.
 - `active_directory.tenant_auth_endpoint` - (Required) The tenant-specific Microsoft Entra authorization endpoint.
 
@@ -453,7 +465,7 @@ Default: `null`
 
 ### <a name="input_auth_settings_client_secret"></a> [auth\_settings\_client\_secret](#input\_auth\_settings\_client\_secret)
 
-Description: The Microsoft Entra application client secret used by App Service Authentication. Required when `var.auth_settings` is set. The value is wired to the Function App as the `MICROSOFT_PROVIDER_AUTHENTICATION_SECRET` app setting and stored in Terraform state.
+Description: The Microsoft Entra application client secret used by App Service Authentication. Required when `var.auth_settings.enabled` is `true`. The value is wired to the Function App as the `MICROSOFT_PROVIDER_AUTHENTICATION_SECRET` app setting and stored in Terraform state.
 
 Type: `string`
 
@@ -748,7 +760,7 @@ Default: `{}`
 
 ### <a name="input_skip_package_deployment"></a> [skip\_package\_deployment](#input\_skip\_package\_deployment)
 
-Description: Whether to skip deploying the Acmebot package through OneDeploy. When true, the package must be deployed out-of-band and export\_api\_key must be false.
+Description: Whether to skip deploying the Acmebot package through OneDeploy. When true, the package must be deployed out-of-band and export\_api\_key must be false. Known issue: Azure Functions Flex Consumption currently returns a corrupted OneDeploy ARM response, so the default (`false`) can fail `terraform apply` even when the package is deployed; set this to `true` and deploy the package out-of-band until the platform issue is resolved.
 
 Type: `bool`
 

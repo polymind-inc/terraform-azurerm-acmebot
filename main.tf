@@ -99,7 +99,7 @@ resource "azapi_resource" "application_insights" {
     }
   }
 
-  response_export_values = ["properties.ConnectionString", "properties.InstrumentationKey"]
+  response_export_values = ["properties.ConnectionString"]
 }
 
 data "azapi_resource" "application_insights" {
@@ -107,7 +107,7 @@ data "azapi_resource" "application_insights" {
 
   type                   = "Microsoft.Insights/components@2020-02-02"
   resource_id            = var.application_insights.resource_id
-  response_export_values = ["properties.ConnectionString", "properties.InstrumentationKey", "properties.WorkspaceResourceId"]
+  response_export_values = ["properties.ConnectionString", "properties.WorkspaceResourceId"]
 }
 
 module "this" {
@@ -142,7 +142,6 @@ module "this" {
   storage_uses_managed_identity     = true
 
   application_insights_connection_string = local.application_insights_connection_string
-  application_insights_key               = local.application_insights_instrumentation_key
 
   app_settings = local.function_app_settings
 
@@ -226,9 +225,41 @@ resource "azapi_resource" "deployment" {
 
   schema_validation_enabled = false
 
+  # The Storage role assignments above can take several minutes to propagate, so
+  # retry while the deployment storage still rejects the Function App identity.
+  retry = {
+    error_message_regex = [
+      "AuthorizationPermissionMismatch",
+      "AuthorizationFailure",
+      "not authorized to perform this operation",
+    ]
+    interval_seconds     = 10
+    max_interval_seconds = 120
+  }
+
   depends_on = [
     azapi_resource.storage_account_function_app_role_assignment,
   ]
+}
+
+# The client ID is only resolvable after the identities are attached, so this is
+# checked against the deployed Function App rather than in variable validation.
+data "azapi_resource" "function_app_identity" {
+  count = local.acmebot_uses_user_assigned_identity ? 1 : 0
+
+  type                   = "Microsoft.Web/sites@2025-03-01"
+  resource_id            = module.this.resource_id
+  response_export_values = ["identity.userAssignedIdentities"]
+
+  lifecycle {
+    postcondition {
+      condition = contains(
+        [for identity in values(try(self.output.identity.userAssignedIdentities, {})) : lower(identity.clientId)],
+        lower(local.acmebot_managed_identity_client_id),
+      )
+      error_message = "acmebot.managed_identity_client_id must match the client ID of an identity attached through managed_identities.user_assigned_resource_ids."
+    }
+  }
 }
 
 data "azapi_resource_action" "function_host_keys" {

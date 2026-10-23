@@ -51,7 +51,7 @@ variable "auth_settings" {
   description = <<DESCRIPTION
 Controls App Service Authentication for the Function App. The client secret is supplied separately via `var.auth_settings_client_secret`.
 
-- `enabled` - (Required) Whether App Service Authentication is enabled.
+- `enabled` - (Required) Whether App Service Authentication is enabled. When `true`, `var.auth_settings_client_secret` is required.
 - `active_directory.client_id` - (Required) The Microsoft Entra application client ID.
 - `active_directory.tenant_auth_endpoint` - (Required) The tenant-specific Microsoft Entra authorization endpoint.
 DESCRIPTION
@@ -62,11 +62,11 @@ variable "auth_settings_client_secret" {
   type        = string
   default     = null
   sensitive   = true
-  description = "The Microsoft Entra application client secret used by App Service Authentication. Required when `var.auth_settings` is set. The value is wired to the Function App as the `MICROSOFT_PROVIDER_AUTHENTICATION_SECRET` app setting and stored in Terraform state."
+  description = "The Microsoft Entra application client secret used by App Service Authentication. Required when `var.auth_settings.enabled` is `true`. The value is wired to the Function App as the `MICROSOFT_PROVIDER_AUTHENTICATION_SECRET` app setting and stored in Terraform state."
 
   validation {
-    condition     = var.auth_settings == null || var.auth_settings_client_secret != null
-    error_message = "auth_settings_client_secret must be set when auth_settings is configured."
+    condition     = var.auth_settings == null ? true : (!var.auth_settings.enabled || var.auth_settings_client_secret != null)
+    error_message = "auth_settings_client_secret must be set when auth_settings.enabled is true."
   }
 }
 
@@ -879,7 +879,7 @@ variable "instance_memory_in_mb" {
 
 variable "skip_package_deployment" {
   type        = bool
-  description = "Whether to skip deploying the Acmebot package through OneDeploy. When true, the package must be deployed out-of-band and export_api_key must be false."
+  description = "Whether to skip deploying the Acmebot package through OneDeploy. When true, the package must be deployed out-of-band and export_api_key must be false. Known issue: Azure Functions Flex Consumption currently returns a corrupted OneDeploy ARM response, so the default (`false`) can fail `terraform apply` even when the package is deployed; set this to `true` and deploy the package out-of-band until the platform issue is resolved."
   default     = false
   nullable    = false
 
@@ -893,6 +893,7 @@ variable "export_api_key" {
   type        = bool
   description = "Whether to read and export the default function host key as output."
   default     = false
+  nullable    = false
 }
 
 # Acmebot Configuration
@@ -996,7 +997,7 @@ Controls Acmebot workload configuration. This object is sensitive because DNS pr
 - `renew_before_expiry` - (Optional) Number of days before certificate expiry when scheduled renewal should run. Defaults to `30`.
 - `use_system_name_server` - (Optional) Whether Acmebot uses the system DNS resolver instead of Google Public DNS for challenge verification. Defaults to `true` when `virtual_network_subnet_id` is set or `environment` is a sovereign cloud, and `false` otherwise. Set explicitly to override.
 - `app_role_required` - (Optional) Whether additional app role assignment is required during Microsoft Entra authentication. Defaults to `false`.
-- `managed_identity_client_id` - (Optional) The client ID of the user-assigned managed identity Acmebot should use. When set, the identity must also be attached through `managed_identities.user_assigned_resource_ids`.
+- `managed_identity_client_id` - (Optional) The client ID of the user-assigned managed identity Acmebot should use. When set, the identity must also be attached through `managed_identities.user_assigned_resource_ids`; the client ID is checked against the attached identities after the Function App is created.
 - `external_account_binding` - (Optional) External Account Binding settings for ACME providers that require account binding.
 - `dns_providers` - (Optional) DNS provider settings for Acmebot. Supported providers are `akamai`, `azure_dns`, `azure_private_dns`, `cloudflare`, `custom_dns`, `dns_made_easy`, `gandi_live_dns`, `go_daddy`, `google_dns`, `ionos_dns`, `ovh`, `power_dns`, `regfish`, `route_53`, `trans_ip`, and `united_domains`.
 DESCRIPTION

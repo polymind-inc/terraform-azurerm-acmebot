@@ -53,6 +53,14 @@ resource "azurerm_role_assignment" "default" {
   principal_id         = module.acmebot.system_assigned_mi_principal_id
 }
 
+# Acmebot creates DNS-01 challenge records in Azure DNS. Narrow the scope to the
+# resource group or zones that host your public DNS zones where possible.
+resource "azurerm_role_assignment" "dns" {
+  scope                = "/subscriptions/${data.azurerm_client_config.current.subscription_id}"
+  role_definition_name = "DNS Zone Contributor"
+  principal_id         = module.acmebot.system_assigned_mi_principal_id
+}
+
 module "acmebot" {
   source = "../../"
 

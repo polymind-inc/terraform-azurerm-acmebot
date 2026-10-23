@@ -25,7 +25,6 @@ mock_provider "azapi" {
           clientId            = "11111111-1111-1111-1111-111111111111"
           principalId         = "22222222-2222-2222-2222-222222222222"
           ConnectionString    = "InstrumentationKey=33333333-3333-3333-3333-333333333333;IngestionEndpoint=https://eastus-0.in.applicationinsights.azure.com/"
-          InstrumentationKey  = "33333333-3333-3333-3333-333333333333"
           WorkspaceResourceId = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg-observability/providers/Microsoft.OperationalInsights/workspaces/log-existing"
           primaryEndpoints = {
             blob  = "https://stacmebottest.blob.core.windows.net/"
@@ -579,6 +578,25 @@ run "auth_settings_requires_client_secret" {
   expect_failures = [var.auth_settings_client_secret]
 }
 
+run "disabled_auth_settings_do_not_require_client_secret" {
+  command = plan
+
+  variables {
+    auth_settings = {
+      enabled = false
+      active_directory = {
+        client_id            = "00000000-0000-0000-0000-000000000000"
+        tenant_auth_endpoint = "https://login.microsoftonline.com/00000000-0000-0000-0000-000000000000/v2.0"
+      }
+    }
+  }
+
+  assert {
+    condition     = length(local.auth_app_settings) == 0
+    error_message = "The authentication secret app setting should be omitted when no client secret is supplied."
+  }
+}
+
 run "system_assigned_disabled_requires_storage_identity" {
   command = plan
 
@@ -684,6 +702,29 @@ run "acmebot_managed_identity_client_id_requires_attached_identity" {
   }
 
   expect_failures = [var.acmebot]
+}
+
+run "custom_dns_propagation_seconds_is_string" {
+  command = plan
+
+  variables {
+    acmebot = {
+      version      = "5.0.1"
+      mail_address = "test@example.com"
+      vault_uri    = "https://kv-acmebot-test.vault.azure.net/"
+      dns_providers = {
+        custom_dns = {
+          endpoint = "https://dns.example.com/"
+          api_key  = "test-api-key"
+        }
+      }
+    }
+  }
+
+  assert {
+    condition     = local.acmebot_app_settings["Acmebot__CustomDns__PropagationSeconds"] == "180"
+    error_message = "Custom DNS propagation seconds should be emitted as a string app setting."
+  }
 }
 
 run "virtual_network_subnet_id_must_be_subnet_resource_id" {

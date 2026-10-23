@@ -14,6 +14,13 @@ Use the module from the Terraform Registry. The following example shows the main
 inputs for a private deployment; see the runnable examples for complete
 configurations.
 
+> [!IMPORTANT]
+> Azure Functions Flex Consumption currently returns a corrupted OneDeploy ARM
+> response, so `terraform apply` can fail on the package deployment step even
+> when the package is deployed successfully. Until the platform issue is
+> resolved, set `skip_package_deployment = true` and deploy the package
+> out-of-band as described in [Operations](#operations).
+
 ```hcl
 module "acmebot" {
   source  = "polymind-inc/acmebot/azurerm"
@@ -83,10 +90,10 @@ module "acmebot" {
   }
 
   site_config = {
-    vnet_route_all_enabled             = true
-    ip_restriction_default_action      = "Deny"
-    scm_ip_restriction_default_action  = "Deny"
-    scm_use_main_ip_restriction        = true
+    vnet_route_all_enabled            = true
+    ip_restriction_default_action     = "Deny"
+    scm_ip_restriction_default_action = "Deny"
+    scm_use_main_ip_restriction       = true
   }
 
   log_analytics_workspace = {
@@ -133,6 +140,10 @@ Runnable examples are available under [`examples`](examples):
 - To make Acmebot use a user-assigned identity, attach it through
   `managed_identities.user_assigned_resource_ids` and set
   `acmebot.managed_identity_client_id`.
+- The module does not grant Acmebot access to Key Vault or DNS. Assign the
+  Acmebot identity Key Vault Certificates Officer on the target Key Vault, and
+  DNS Zone Contributor (for `azure_dns`) or Private DNS Zone Contributor (for
+  `azure_private_dns`) on the zones or their resource group.
 - Storage Account shared key authorization is disabled by default. Blob versioning,
   change feed, soft delete, Entra-first portal auth, and infrastructure encryption
   are enabled by default.

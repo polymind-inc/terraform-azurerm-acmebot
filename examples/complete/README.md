@@ -14,7 +14,8 @@ It demonstrates:
   endpoints.
 - Public network access disabled on the Function App, Storage Account, and Key
   Vault.
-- A user-assigned managed identity used by both Acmebot and `AzureWebJobsStorage`.
+- A user-assigned managed identity used by both Acmebot and `AzureWebJobsStorage`,
+  with Key Vault Certificates Officer and DNS Zone Contributor role assignments.
 - App Service Authentication backed by a Microsoft Entra application.
 - Zone-redundant Storage, 90-day Log Analytics retention, and a `CanNotDelete`
   lock on the Function App.

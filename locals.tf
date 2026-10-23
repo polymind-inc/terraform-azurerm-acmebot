@@ -60,8 +60,10 @@ locals {
     local.create_log_analytics_workspace ? azapi_resource.log_analytics_workspace[0].id :
     data.azapi_resource.application_insights[0].output.properties.WorkspaceResourceId
   )
-  application_insights_connection_string   = local.create_application_insights ? azapi_resource.application_insights[0].output.properties.ConnectionString : data.azapi_resource.application_insights[0].output.properties.ConnectionString
-  application_insights_instrumentation_key = local.create_application_insights ? azapi_resource.application_insights[0].output.properties.InstrumentationKey : data.azapi_resource.application_insights[0].output.properties.InstrumentationKey
+  application_insights_connection_string = local.create_application_insights ? azapi_resource.application_insights[0].output.properties.ConnectionString : data.azapi_resource.application_insights[0].output.properties.ConnectionString
+
+  acmebot_managed_identity_client_id  = nonsensitive(var.acmebot.managed_identity_client_id)
+  acmebot_uses_user_assigned_identity = local.acmebot_managed_identity_client_id != null
 
   acmebot_use_system_name_server = var.acmebot.use_system_name_server != null ? var.acmebot.use_system_name_server : (
     var.virtual_network_subnet_id != null || var.acmebot.environment != "AzureCloud"
@@ -101,7 +103,7 @@ locals {
       "Acmebot__CustomDns__Endpoint"           = var.acmebot.dns_providers.custom_dns.endpoint
       "Acmebot__CustomDns__ApiKey"             = var.acmebot.dns_providers.custom_dns.api_key
       "Acmebot__CustomDns__ApiKeyHeaderName"   = var.acmebot.dns_providers.custom_dns.api_key_header_name
-      "Acmebot__CustomDns__PropagationSeconds" = var.acmebot.dns_providers.custom_dns.propagation_seconds
+      "Acmebot__CustomDns__PropagationSeconds" = tostring(var.acmebot.dns_providers.custom_dns.propagation_seconds)
     } : {},
     var.acmebot.dns_providers.dns_made_easy != null ? {
       "Acmebot__DnsMadeEasy__ApiKey"    = var.acmebot.dns_providers.dns_made_easy.api_key
@@ -160,7 +162,9 @@ locals {
     } : {},
   )
 
-  auth_app_settings = var.auth_settings != null ? {
+  # The secret may be omitted while authentication is disabled; the setting is then
+  # left out instead of being written as an empty value.
+  auth_app_settings = var.auth_settings != null && var.auth_settings_client_secret != null ? {
     "MICROSOFT_PROVIDER_AUTHENTICATION_SECRET" = var.auth_settings_client_secret
   } : {}
 
