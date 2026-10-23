@@ -62,8 +62,7 @@ locals {
   )
   application_insights_connection_string = local.create_application_insights ? azapi_resource.application_insights[0].output.properties.ConnectionString : data.azapi_resource.application_insights[0].output.properties.ConnectionString
 
-  acmebot_managed_identity_client_id  = nonsensitive(var.acmebot.managed_identity_client_id)
-  acmebot_uses_user_assigned_identity = local.acmebot_managed_identity_client_id != null
+  acmebot_managed_identity_client_id = nonsensitive(var.acmebot.managed_identity_client_id)
 
   acmebot_use_system_name_server = var.acmebot.use_system_name_server != null ? var.acmebot.use_system_name_server : (
     var.virtual_network_subnet_id != null || var.acmebot.environment != "AzureCloud"

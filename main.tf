@@ -244,16 +244,17 @@ resource "azapi_resource" "deployment" {
 
 # The client ID is only resolvable after the identities are attached, so this is
 # checked against the deployed Function App rather than in variable validation.
+# The read is unconditional because the client ID may be unknown during planning
+# when the identity is created alongside this module, which would leave a
+# client-ID-based count unknown.
 data "azapi_resource" "function_app_identity" {
-  count = local.acmebot_uses_user_assigned_identity ? 1 : 0
-
   type                   = "Microsoft.Web/sites@2025-03-01"
   resource_id            = module.this.resource_id
   response_export_values = ["identity.userAssignedIdentities"]
 
   lifecycle {
     postcondition {
-      condition = contains(
+      condition = local.acmebot_managed_identity_client_id == null ? true : contains(
         [for identity in values(try(self.output.identity.userAssignedIdentities, {})) : lower(identity.clientId)],
         lower(local.acmebot_managed_identity_client_id),
       )
