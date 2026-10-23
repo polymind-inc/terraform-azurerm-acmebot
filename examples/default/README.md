@@ -11,6 +11,8 @@ It creates:
 - A Function App with a system-assigned managed identity.
 - Identity-based Storage access for `AzureWebJobsStorage`.
 - Azure DNS as the ACME DNS-01 challenge provider.
+- Key Vault Certificates Officer and DNS Zone Contributor role assignments for
+  the Function App identity.
 
 This example does not configure App Service Authentication. The root module
 defaults to a private posture, so this example explicitly enables public network

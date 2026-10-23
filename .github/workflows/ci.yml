@@ -63,8 +63,12 @@ jobs:
       run: terraform validate
 
   terraform-test:
-    name: Terraform unit tests
+    name: Terraform unit tests (${{ matrix.terraform-version }})
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        terraform-version: ["1.12.2", "1.15.4"]
 
     steps:
     - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -72,7 +76,7 @@ jobs:
     - name: Setup Terraform CLI
       uses: hashicorp/setup-terraform@dfe3c3f87815947d99a8997f908cb6525fc44e9e # v4.0.1
       with:
-        terraform_version: ${{ env.TERRAFORM_VERSION }}
+        terraform_version: ${{ matrix.terraform-version }}
 
     - name: Initialize Terraform
       run: terraform init -backend=false -test-directory=tests/unit

@@ -152,6 +152,15 @@ resource "azurerm_role_assignment" "keyvault_certificates_officer" {
   skip_service_principal_aad_check = true
 }
 
+# Acmebot creates DNS-01 challenge records in Azure DNS. Narrow the scope to the
+# resource group or zones that host your public DNS zones where possible.
+resource "azurerm_role_assignment" "dns_zone_contributor" {
+  scope                            = "/subscriptions/${data.azurerm_client_config.current.subscription_id}"
+  role_definition_name             = "DNS Zone Contributor"
+  principal_id                     = azurerm_user_assigned_identity.acmebot.principal_id
+  skip_service_principal_aad_check = true
+}
+
 resource "azurerm_private_endpoint" "keyvault" {
   name                = "pep-kv-acmebot-${random_string.random.result}"
   resource_group_name = azurerm_resource_group.default.name
@@ -263,19 +272,19 @@ module "acmebot" {
 
   auth_settings = {
     enabled = true
-    active_directory = {
+    microsoft_entra = {
       client_id            = azuread_application.default.client_id
+      client_secret        = azuread_application_password.default.value
       tenant_auth_endpoint = "https://login.microsoftonline.com/${data.azuread_client_config.current.tenant_id}/v2.0"
     }
   }
-
-  auth_settings_client_secret = azuread_application_password.default.value
 
   # Ensure private DNS resolution is in place before the Function App is deployed
   # so it can reach Storage and Key Vault through their private endpoints.
   depends_on = [
     azurerm_private_dns_zone_virtual_network_link.default,
     azurerm_role_assignment.keyvault_certificates_officer,
+    azurerm_role_assignment.dns_zone_contributor,
     azurerm_private_endpoint.keyvault,
   ]
 }

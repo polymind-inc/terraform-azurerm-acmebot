@@ -59,42 +59,53 @@ variable "auth_settings" {
   })
   sensitive   = true
   description = <<DESCRIPTION
-Controls App Service Authentication for the Function App.
+Controls App Service Authentication for the Function App. Provider credentials are sensitive and stored in Terraform state. The module generates the secret app settings and their references internally.
 
 - `enabled` - (Required) Whether App Service Authentication is enabled.
 - `default_provider` - (Optional) The default authentication provider. Defaults to `microsoft_entra`. Possible values are `microsoft_entra` or the name of a custom OpenID Connect provider.
 - `microsoft_entra.client_id` - (Required when `microsoft_entra` is set) The Microsoft Entra application client ID.
-- `microsoft_entra.client_secret` - (Required when `microsoft_entra` is set) The Microsoft Entra application client secret
+- `microsoft_entra.client_secret` - (Required when `microsoft_entra` is set) The Microsoft Entra application client secret.
 - `microsoft_entra.tenant_auth_endpoint` - (Required when `microsoft_entra` is set) The tenant-specific Microsoft Entra authorization endpoint.
-- `custom_open_id_connect_providers.<key>` - (Required for each custom provider) The name of a custom OpenID Connect provider.
+- `custom_open_id_connect_providers.<key>` - (Required for each custom provider) The name of a custom OpenID Connect provider. `microsoft_entra` is reserved for the built-in provider.
 - `custom_open_id_connect_providers.<key>.client_id` - (Required for each custom provider) The custom OpenID Connect application client ID.
 - `custom_open_id_connect_providers.<key>.client_secret` - (Required for each custom provider) The custom OpenID Connect application client secret.
 - `custom_open_id_connect_providers.<key>.well_known_open_id_configuration` - (Required for each custom provider) The well-known OpenID Connect configuration URL for the custom provider.
 
 DESCRIPTION
   default     = null
+
   validation {
-    condition     = var.auth_settings == null || var.auth_settings.microsoft_entra == null || (var.auth_settings.microsoft_entra.client_id != null && var.auth_settings.microsoft_entra.client_secret != null && var.auth_settings.microsoft_entra.tenant_auth_endpoint != null)
+    condition = var.auth_settings == null ? true : (var.auth_settings.microsoft_entra == null ? true : (
+      var.auth_settings.microsoft_entra.client_id != null &&
+      var.auth_settings.microsoft_entra.client_secret != null &&
+      var.auth_settings.microsoft_entra.tenant_auth_endpoint != null
+    ))
     error_message = "All three of var.auth_settings.microsoft_entra.client_id, var.auth_settings.microsoft_entra.client_secret, and var.auth_settings.microsoft_entra.tenant_auth_endpoint must be set when auth_settings.microsoft_entra is configured."
   }
 
   validation {
-    condition = var.auth_settings == null || (
-      var.auth_settings.custom_open_id_connect_providers == null || alltrue([
-        for k, provider in var.auth_settings.custom_open_id_connect_providers : provider.client_id != null && provider.client_secret != null && provider.well_known_open_id_configuration != null
-      ])
-    )
+    condition = var.auth_settings == null ? true : alltrue([
+      for provider in values(var.auth_settings.custom_open_id_connect_providers) : provider == null ? false : (
+        provider.client_id != null && provider.client_secret != null && provider.well_known_open_id_configuration != null
+      )
+    ])
     error_message = "client_id, client_secret and well_known_open_id_configuration need to be provided for each custom OpenID Connect provider."
   }
 
   validation {
-    condition     = var.auth_settings == null || var.auth_settings.default_provider != "microsoft_entra" || var.auth_settings.microsoft_entra != null
-    error_message = "auth_settings.microsoft_entra must be configured when auth_settings.default_provider is 'microsoft_entra'."
+    condition = var.auth_settings == null ? true : (
+      var.auth_settings.enabled ? (
+        var.auth_settings.default_provider == "microsoft_entra"
+        ? var.auth_settings.microsoft_entra != null
+        : contains(keys(var.auth_settings.custom_open_id_connect_providers), var.auth_settings.default_provider)
+      ) : true
+    )
+    error_message = "When authentication is enabled, auth_settings.default_provider must refer to a configured provider."
   }
 
   validation {
-    condition     = var.auth_settings == null || var.auth_settings.default_provider == null || anytrue([contains(keys(var.auth_settings.custom_open_id_connect_providers), var.auth_settings.default_provider), contains(["microsoft_entra"], var.auth_settings.default_provider)])
-    error_message = "auth_settings.default_provider must be either a key of custom_open_id_connect_providers or 'microsoft_entra'."
+    condition     = var.auth_settings == null ? true : !contains([for name in keys(var.auth_settings.custom_open_id_connect_providers) : lower(name)], "microsoft_entra")
+    error_message = "microsoft_entra is reserved and cannot be used as a custom OpenID Connect provider name."
   }
 }
 
@@ -907,7 +918,7 @@ variable "instance_memory_in_mb" {
 
 variable "skip_package_deployment" {
   type        = bool
-  description = "Whether to skip deploying the Acmebot package through OneDeploy. When true, the package must be deployed out-of-band and export_api_key must be false."
+  description = "Whether to skip deploying the Acmebot package through OneDeploy. When true, the package must be deployed out-of-band and export_api_key must be false. Known issue: Azure Functions Flex Consumption currently returns a corrupted OneDeploy ARM response, so the default (`false`) can fail `terraform apply` even when the package is deployed; set this to `true` and deploy the package out-of-band until the platform issue is resolved."
   default     = false
   nullable    = false
 
@@ -921,6 +932,7 @@ variable "export_api_key" {
   type        = bool
   description = "Whether to read and export the default function host key as output."
   default     = false
+  nullable    = false
 }
 
 # Acmebot Configuration
@@ -1024,7 +1036,7 @@ Controls Acmebot workload configuration. This object is sensitive because DNS pr
 - `renew_before_expiry` - (Optional) Number of days before certificate expiry when scheduled renewal should run. Defaults to `30`.
 - `use_system_name_server` - (Optional) Whether Acmebot uses the system DNS resolver instead of Google Public DNS for challenge verification. Defaults to `true` when `virtual_network_subnet_id` is set or `environment` is a sovereign cloud, and `false` otherwise. Set explicitly to override.
 - `app_role_required` - (Optional) Whether additional app role assignment is required during Microsoft Entra authentication. Defaults to `false`.
-- `managed_identity_client_id` - (Optional) The client ID of the user-assigned managed identity Acmebot should use. When set, the identity must also be attached through `managed_identities.user_assigned_resource_ids`.
+- `managed_identity_client_id` - (Optional) The client ID of the user-assigned managed identity Acmebot should use. When set, the identity must also be attached through `managed_identities.user_assigned_resource_ids`; the client ID is checked against the attached identities after the Function App is created.
 - `external_account_binding` - (Optional) External Account Binding settings for ACME providers that require account binding.
 - `dns_providers` - (Optional) DNS provider settings for Acmebot. Supported providers are `akamai`, `azure_dns`, `azure_private_dns`, `cloudflare`, `custom_dns`, `dns_made_easy`, `gandi_live_dns`, `go_daddy`, `google_dns`, `ionos_dns`, `ovh`, `power_dns`, `regfish`, `route_53`, `trans_ip`, and `united_domains`.
 DESCRIPTION

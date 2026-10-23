@@ -48,10 +48,9 @@ resource "azurerm_private_dns_zone" "default" {
 resource "azurerm_private_dns_zone_virtual_network_link" "default" {
   for_each = local.private_dns_zones
 
-  name                  = "vnl-${each.key}"
-  resource_group_name   = azurerm_resource_group.default.name
-  private_dns_zone_name = azurerm_private_dns_zone.default[each.key].name
-  virtual_network_id    = azurerm_virtual_network.default.id
-  registration_enabled  = false
-  tags                  = local.tags
+  name                 = "vnl-${each.key}"
+  private_dns_zone_id  = azurerm_private_dns_zone.default[each.key].id
+  virtual_network_id   = azurerm_virtual_network.default.id
+  registration_enabled = false
+  tags                 = local.tags
 }

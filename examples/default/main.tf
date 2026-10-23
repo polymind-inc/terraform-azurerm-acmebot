@@ -7,7 +7,7 @@ provider "azurerm" {
 }
 
 terraform {
-  required_version = ">= 1.10.0, < 2.0.0"
+  required_version = ">= 1.12.0, < 2.0.0"
 
   required_providers {
     azurerm = {
@@ -50,6 +50,14 @@ resource "azurerm_key_vault" "default" {
 resource "azurerm_role_assignment" "default" {
   scope                = azurerm_key_vault.default.id
   role_definition_name = "Key Vault Certificates Officer"
+  principal_id         = module.acmebot.system_assigned_mi_principal_id
+}
+
+# Acmebot creates DNS-01 challenge records in Azure DNS. Narrow the scope to the
+# resource group or zones that host your public DNS zones where possible.
+resource "azurerm_role_assignment" "dns" {
+  scope                = "/subscriptions/${data.azurerm_client_config.current.subscription_id}"
+  role_definition_name = "DNS Zone Contributor"
   principal_id         = module.acmebot.system_assigned_mi_principal_id
 }
 

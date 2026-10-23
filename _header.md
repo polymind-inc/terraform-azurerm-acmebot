@@ -14,6 +14,13 @@ Use the module from the Terraform Registry. The following example shows the main
 inputs for a private deployment; see the runnable examples for complete
 configurations.
 
+> [!IMPORTANT]
+> Azure Functions Flex Consumption currently returns a corrupted OneDeploy ARM
+> response, so `terraform apply` can fail on the package deployment step even
+> when the package is deployed successfully. Until the platform issue is
+> resolved, set `skip_package_deployment = true` and deploy the package
+> out-of-band as described in [Operations](#operations).
+
 ```hcl
 module "acmebot" {
   source  = "polymind-inc/acmebot/azurerm"
@@ -83,10 +90,10 @@ module "acmebot" {
   }
 
   site_config = {
-    vnet_route_all_enabled             = true
-    ip_restriction_default_action      = "Deny"
-    scm_ip_restriction_default_action  = "Deny"
-    scm_use_main_ip_restriction        = true
+    vnet_route_all_enabled            = true
+    ip_restriction_default_action     = "Deny"
+    scm_ip_restriction_default_action = "Deny"
+    scm_use_main_ip_restriction       = true
   }
 
   log_analytics_workspace = {
@@ -105,6 +112,67 @@ Runnable examples are available under [`examples`](examples):
 
 - [`default`](examples/default) - A public quickstart with minimal networking, a system-assigned managed identity, a Key Vault target, and Azure DNS.
 - [`complete`](examples/complete) - A fully private deployment with VNET integration, Function App and Storage Account Private Endpoints, private DNS, a user-assigned managed identity, and a resource lock.
+
+## Authentication
+
+Omit `auth_settings` to leave App Service Authentication unconfigured. To
+explicitly disable it, set `auth_settings = { enabled = false }`; no provider
+credentials are required in that case.
+
+The [`complete`](examples/complete) example configures Microsoft Entra ID. For a
+custom OIDC provider such as Keycloak, use:
+
+```hcl
+auth_settings = {
+  enabled          = true
+  default_provider = "keycloak"
+
+  custom_open_id_connect_providers = {
+    keycloak = {
+      client_id                        = var.keycloak_client_id
+      client_secret                    = var.keycloak_client_secret
+      well_known_open_id_configuration = "https://sso.example.com/realms/example/.well-known/openid-configuration"
+    }
+  }
+}
+```
+
+Entra and custom OIDC providers can be configured together. `default_provider`
+selects the login redirect: `microsoft_entra` (the default) selects Entra, and a
+custom provider's map key selects that provider. The selected provider must be
+configured when authentication is enabled. `microsoft_entra` is reserved and
+cannot be a custom provider name. Every configured provider requires its client
+ID, secret, and issuer/discovery URL, including when authentication is disabled.
+
+The module generates `MICROSOFT_PROVIDER_AUTHENTICATION_SECRET` for Entra and
+`CUSTOM_OIDC_<provider-name>_AUTHENTICATION_SECRET` for each custom provider and
+wires their references internally. Credentials remain sensitive in app settings
+and Terraform state. Only provider names, client IDs, endpoints, and other
+non-secret authentication metadata are declassified for AVM's `for_each` use.
+
+### Migrating Existing Authentication Settings
+
+This is a breaking input change. Rename `auth_settings.active_directory` to
+`auth_settings.microsoft_entra`, move the former `auth_settings_client_secret`
+value into that object's `client_secret`, and remove the old top-level input:
+
+```hcl
+auth_settings = {
+  enabled = true
+  microsoft_entra = {
+    client_id            = var.client_id
+    client_secret        = var.client_secret
+    tenant_auth_endpoint = var.tenant_auth_endpoint
+  }
+}
+```
+
+Existing Entra configurations can omit `default_provider`; the module translates
+its default `microsoft_entra` to Azure's `azureactivedirectory` internally.
+
+Terraform 1.12 or later is now required. The existing module and current AVM
+dependencies rely on null-safe logical evaluation and write-only attributes
+that are unavailable with the former Terraform 1.10 minimum.
 
 ## Design Notes
 
@@ -133,6 +201,10 @@ Runnable examples are available under [`examples`](examples):
 - To make Acmebot use a user-assigned identity, attach it through
   `managed_identities.user_assigned_resource_ids` and set
   `acmebot.managed_identity_client_id`.
+- The module does not grant Acmebot access to Key Vault or DNS. Assign the
+  Acmebot identity Key Vault Certificates Officer on the target Key Vault, and
+  DNS Zone Contributor (for `azure_dns`) or Private DNS Zone Contributor (for
+  `azure_private_dns`) on the zones or their resource group.
 - Storage Account shared key authorization is disabled by default. Blob versioning,
   change feed, soft delete, Entra-first portal auth, and infrastructure encryption
   are enabled by default.

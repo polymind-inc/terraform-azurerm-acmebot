@@ -17,7 +17,9 @@ updates:
         patterns:
           - "*"
   - package-ecosystem: "terraform"
-    directory: "/examples/default"
+    directories:
+      - "/examples/default"
+      - "/examples/complete"
     schedule:
       interval: "weekly"
     groups:

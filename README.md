@@ -15,6 +15,13 @@ Use the module from the Terraform Registry. The following example shows the main
 inputs for a private deployment; see the runnable examples for complete
 configurations.
 
+> [!IMPORTANT]
+> Azure Functions Flex Consumption currently returns a corrupted OneDeploy ARM
+> response, so `terraform apply` can fail on the package deployment step even
+> when the package is deployed successfully. Until the platform issue is
+> resolved, set `skip_package_deployment = true` and deploy the package
+> out-of-band as described in [Operations](#operations).
+
 ```hcl
 module "acmebot" {
   source  = "polymind-inc/acmebot/azurerm"
@@ -84,10 +91,10 @@ module "acmebot" {
   }
 
   site_config = {
-    vnet_route_all_enabled             = true
-    ip_restriction_default_action      = "Deny"
-    scm_ip_restriction_default_action  = "Deny"
-    scm_use_main_ip_restriction        = true
+    vnet_route_all_enabled            = true
+    ip_restriction_default_action     = "Deny"
+    scm_ip_restriction_default_action = "Deny"
+    scm_use_main_ip_restriction       = true
   }
 
   log_analytics_workspace = {
@@ -106,6 +113,67 @@ Runnable examples are available under [`examples`](examples):
 
 - [`default`](examples/default) - A public quickstart with minimal networking, a system-assigned managed identity, a Key Vault target, and Azure DNS.
 - [`complete`](examples/complete) - A fully private deployment with VNET integration, Function App and Storage Account Private Endpoints, private DNS, a user-assigned managed identity, and a resource lock.
+
+## Authentication
+
+Omit `auth_settings` to leave App Service Authentication unconfigured. To
+explicitly disable it, set `auth_settings = { enabled = false }`; no provider
+credentials are required in that case.
+
+The [`complete`](examples/complete) example configures Microsoft Entra ID. For a
+custom OIDC provider such as Keycloak, use:
+
+```hcl
+auth_settings = {
+  enabled          = true
+  default_provider = "keycloak"
+
+  custom_open_id_connect_providers = {
+    keycloak = {
+      client_id                        = var.keycloak_client_id
+      client_secret                    = var.keycloak_client_secret
+      well_known_open_id_configuration = "https://sso.example.com/realms/example/.well-known/openid-configuration"
+    }
+  }
+}
+```
+
+Entra and custom OIDC providers can be configured together. `default_provider`
+selects the login redirect: `microsoft_entra` (the default) selects Entra, and a
+custom provider's map key selects that provider. The selected provider must be
+configured when authentication is enabled. `microsoft_entra` is reserved and
+cannot be a custom provider name. Every configured provider requires its client
+ID, secret, and issuer/discovery URL, including when authentication is disabled.
+
+The module generates `MICROSOFT_PROVIDER_AUTHENTICATION_SECRET` for Entra and
+`CUSTOM_OIDC_<provider-name>_AUTHENTICATION_SECRET` for each custom provider and
+wires their references internally. Credentials remain sensitive in app settings
+and Terraform state. Only provider names, client IDs, endpoints, and other
+non-secret authentication metadata are declassified for AVM's `for_each` use.
+
+### Migrating Existing Authentication Settings
+
+This is a breaking input change. Rename `auth_settings.active_directory` to
+`auth_settings.microsoft_entra`, move the former `auth_settings_client_secret`
+value into that object's `client_secret`, and remove the old top-level input:
+
+```hcl
+auth_settings = {
+  enabled = true
+  microsoft_entra = {
+    client_id            = var.client_id
+    client_secret        = var.client_secret
+    tenant_auth_endpoint = var.tenant_auth_endpoint
+  }
+}
+```
+
+Existing Entra configurations can omit `default_provider`; the module translates
+its default `microsoft_entra` to Azure's `azureactivedirectory` internally.
+
+Terraform 1.12 or later is now required. The existing module and current AVM
+dependencies rely on null-safe logical evaluation and write-only attributes
+that are unavailable with the former Terraform 1.10 minimum.
 
 ## Design Notes
 
@@ -134,6 +202,10 @@ Runnable examples are available under [`examples`](examples):
 - To make Acmebot use a user-assigned identity, attach it through
   `managed_identities.user_assigned_resource_ids` and set
   `acmebot.managed_identity_client_id`.
+- The module does not grant Acmebot access to Key Vault or DNS. Assign the
+  Acmebot identity Key Vault Certificates Officer on the target Key Vault, and
+  DNS Zone Contributor (for `azure_dns`) or Private DNS Zone Contributor (for
+  `azure_private_dns`) on the zones or their resource group.
 - Storage Account shared key authorization is disabled by default. Blob versioning,
   change feed, soft delete, Entra-first portal auth, and infrastructure encryption
   are enabled by default.
@@ -234,7 +306,7 @@ or implemented in the surrounding platform:
 
 The following requirements are needed by this module:
 
-- <a name="requirement_terraform"></a> [terraform](#requirement\_terraform) (>= 1.10.0, < 2.0.0)
+- <a name="requirement_terraform"></a> [terraform](#requirement\_terraform) (>= 1.12.0, < 2.0.0)
 
 - <a name="requirement_azapi"></a> [azapi](#requirement\_azapi) (>= 2.11.0, < 3.0.0)
 
@@ -260,6 +332,7 @@ The following resources are used by this module:
 - [azapi_resource.storage_account_function_app_role_assignment](https://registry.terraform.io/providers/Azure/azapi/latest/docs/resources/resource) (resource)
 - [random_string.deployment_container_suffix](https://registry.terraform.io/providers/hashicorp/random/latest/docs/resources/string) (resource)
 - [azapi_resource.application_insights](https://registry.terraform.io/providers/Azure/azapi/latest/docs/data-sources/resource) (data source)
+- [azapi_resource.function_app_identity](https://registry.terraform.io/providers/Azure/azapi/latest/docs/data-sources/resource) (data source)
 - [azapi_resource.storage_user_assigned_identity](https://registry.terraform.io/providers/Azure/azapi/latest/docs/data-sources/resource) (data source)
 - [azapi_resource_action.function_host_keys](https://registry.terraform.io/providers/Azure/azapi/latest/docs/data-sources/resource_action) (data source)
 
@@ -283,7 +356,7 @@ Description: Controls Acmebot workload configuration. This object is sensitive b
 - `renew_before_expiry` - (Optional) Number of days before certificate expiry when scheduled renewal should run. Defaults to `30`.
 - `use_system_name_server` - (Optional) Whether Acmebot uses the system DNS resolver instead of Google Public DNS for challenge verification. Defaults to `true` when `virtual_network_subnet_id` is set or `environment` is a sovereign cloud, and `false` otherwise. Set explicitly to override.
 - `app_role_required` - (Optional) Whether additional app role assignment is required during Microsoft Entra authentication. Defaults to `false`.
-- `managed_identity_client_id` - (Optional) The client ID of the user-assigned managed identity Acmebot should use. When set, the identity must also be attached through `managed_identities.user_assigned_resource_ids`.
+- `managed_identity_client_id` - (Optional) The client ID of the user-assigned managed identity Acmebot should use. When set, the identity must also be attached through `managed_identities.user_assigned_resource_ids`; the client ID is checked against the attached identities after the Function App is created.
 - `external_account_binding` - (Optional) External Account Binding settings for ACME providers that require account binding.
 - `dns_providers` - (Optional) DNS provider settings for Acmebot. Supported providers are `akamai`, `azure_dns`, `azure_private_dns`, `cloudflare`, `custom_dns`, `dns_made_easy`, `gandi_live_dns`, `go_daddy`, `google_dns`, `ionos_dns`, `ovh`, `power_dns`, `regfish`, `route_53`, `trans_ip`, and `united_domains`.
 
@@ -431,23 +504,22 @@ Default: `{}`
 
 ### <a name="input_auth_settings"></a> [auth\_settings](#input\_auth\_settings)
 
-Description: Controls App Service Authentication for the Function App. The client secret is supplied separately via `var.auth_settings_client_secrets`.
+Description: Controls App Service Authentication for the Function App. Provider credentials are sensitive and stored in Terraform state. The module generates the secret app settings and their references internally.
 
 - `enabled` - (Required) Whether App Service Authentication is enabled.
 - `default_provider` - (Optional) The default authentication provider. Defaults to `microsoft_entra`. Possible values are `microsoft_entra` or the name of a custom OpenID Connect provider.
-- `microsoft_entra` - (Optional) Object containing the configuration for Microsoft Entra (Azure Active Directory)
 - `microsoft_entra.client_id` - (Required when `microsoft_entra` is set) The Microsoft Entra application client ID.
 - `microsoft_entra.client_secret` - (Required when `microsoft_entra` is set) The Microsoft Entra application client secret.
 - `microsoft_entra.tenant_auth_endpoint` - (Required when `microsoft_entra` is set) The tenant-specific Microsoft Entra authorization endpoint.
-- `custom_open_id_connect_providers` - (Optional) Map of objects of custom OIDC providers
-- `custom_open_id_connect_providers.client_id` - (Required for each custom provider) The custom OpenID Connect application client ID.
-- `custom_open_id_connect_providers.client_secret` - (Required for each custom provider) The client secret of the custom OpenID Connect provider.
-- `custom_open_id_connect_providers.well_known_open_id_configuration` - (Required for each custom provider) The well-known OpenID Connect configuration URL for the custom provider.
+- `custom_open_id_connect_providers.<key>` - (Required for each custom provider) The name of a custom OpenID Connect provider. `microsoft_entra` is reserved for the built-in provider.
+- `custom_open_id_connect_providers.<key>.client_id` - (Required for each custom provider) The custom OpenID Connect application client ID.
+- `custom_open_id_connect_providers.<key>.client_secret` - (Required for each custom provider) The custom OpenID Connect application client secret.
+- `custom_open_id_connect_providers.<key>.well_known_open_id_configuration` - (Required for each custom provider) The well-known OpenID Connect configuration URL for the custom provider.
 
 Type:
 
 ```hcl
-  type = object({
+object({
     enabled          = bool
     default_provider = optional(string, "microsoft_entra")
 
@@ -756,7 +828,7 @@ Default: `{}`
 
 ### <a name="input_skip_package_deployment"></a> [skip\_package\_deployment](#input\_skip\_package\_deployment)
 
-Description: Whether to skip deploying the Acmebot package through OneDeploy. When true, the package must be deployed out-of-band and export\_api\_key must be false.
+Description: Whether to skip deploying the Acmebot package through OneDeploy. When true, the package must be deployed out-of-band and export\_api\_key must be false. Known issue: Azure Functions Flex Consumption currently returns a corrupted OneDeploy ARM response, so the default (`false`) can fail `terraform apply` even when the package is deployed; set this to `true` and deploy the package out-of-band until the platform issue is resolved.
 
 Type: `bool`
 
@@ -974,7 +1046,7 @@ Version: ~> 0.10.0
 
 Source: Azure/avm-res-web-site/azurerm
 
-Version: ~> 0.23.0
+Version: ~> 0.24.1
 
 ## License
 

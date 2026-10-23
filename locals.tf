@@ -60,8 +60,9 @@ locals {
     local.create_log_analytics_workspace ? azapi_resource.log_analytics_workspace[0].id :
     data.azapi_resource.application_insights[0].output.properties.WorkspaceResourceId
   )
-  application_insights_connection_string   = local.create_application_insights ? azapi_resource.application_insights[0].output.properties.ConnectionString : data.azapi_resource.application_insights[0].output.properties.ConnectionString
-  application_insights_instrumentation_key = local.create_application_insights ? azapi_resource.application_insights[0].output.properties.InstrumentationKey : data.azapi_resource.application_insights[0].output.properties.InstrumentationKey
+  application_insights_connection_string = local.create_application_insights ? azapi_resource.application_insights[0].output.properties.ConnectionString : data.azapi_resource.application_insights[0].output.properties.ConnectionString
+
+  acmebot_managed_identity_client_id = nonsensitive(var.acmebot.managed_identity_client_id)
 
   acmebot_use_system_name_server = var.acmebot.use_system_name_server != null ? var.acmebot.use_system_name_server : (
     var.virtual_network_subnet_id != null || var.acmebot.environment != "AzureCloud"
@@ -101,7 +102,7 @@ locals {
       "Acmebot__CustomDns__Endpoint"           = var.acmebot.dns_providers.custom_dns.endpoint
       "Acmebot__CustomDns__ApiKey"             = var.acmebot.dns_providers.custom_dns.api_key
       "Acmebot__CustomDns__ApiKeyHeaderName"   = var.acmebot.dns_providers.custom_dns.api_key_header_name
-      "Acmebot__CustomDns__PropagationSeconds" = var.acmebot.dns_providers.custom_dns.propagation_seconds
+      "Acmebot__CustomDns__PropagationSeconds" = tostring(var.acmebot.dns_providers.custom_dns.propagation_seconds)
     } : {},
     var.acmebot.dns_providers.dns_made_easy != null ? {
       "Acmebot__DnsMadeEasy__ApiKey"    = var.acmebot.dns_providers.dns_made_easy.api_key
@@ -160,13 +161,14 @@ locals {
     } : {},
   )
 
-  auth_ad_app_settings = var.auth_settings != null && var.auth_settings.microsoft_entra != null ? {
+  auth_ad_app_settings = var.auth_settings == null ? {} : var.auth_settings.microsoft_entra == null ? {} : {
     "MICROSOFT_PROVIDER_AUTHENTICATION_SECRET" = var.auth_settings.microsoft_entra.client_secret
-  } : {}
+  }
 
-  auth_custom_oidc_app_settings = var.auth_settings != null && var.auth_settings.custom_open_id_connect_providers != null && length(var.auth_settings.custom_open_id_connect_providers) > 0 ? {
-    for name, provider in var.auth_settings.custom_open_id_connect_providers : "${name}_AUTHENTICATION_SECRET" => provider.client_secret
-  } : {}
+  auth_custom_oidc_app_settings = var.auth_settings == null ? {} : {
+    for name, provider in var.auth_settings.custom_open_id_connect_providers : "CUSTOM_OIDC_${name}_AUTHENTICATION_SECRET" => provider.client_secret
+    if provider != null
+  }
 
   auth_app_settings = merge(
     local.auth_ad_app_settings,
@@ -192,10 +194,12 @@ locals {
     local.auth_app_settings,
   )
 
-  auth_settings_v2 = nonsensitive(var.auth_settings) != null ? {
+  # AVM uses this metadata in for_each. Declassify only non-secret attributes;
+  # client secrets stay sensitive in auth_app_settings and never enter this object.
+  auth_settings_v2 = nonsensitive(var.auth_settings != null) ? {
     auth_enabled                  = nonsensitive(var.auth_settings.enabled)
     require_authentication        = nonsensitive(var.auth_settings.enabled)
-    redirect_to_provider          = nonsensitive(var.auth_settings.default_provider == "microsoft_entra" ? "azureactivedirectory" : var.auth_settings.default_provider)
+    redirect_to_provider          = nonsensitive(var.auth_settings.enabled) ? nonsensitive(var.auth_settings.default_provider == "microsoft_entra" ? "azureactivedirectory" : var.auth_settings.default_provider) : null
     unauthenticated_client_action = "RedirectToLoginPage"
     identity_providers = {
       azure_active_directory = nonsensitive(var.auth_settings.microsoft_entra != null) ? {
@@ -205,28 +209,22 @@ locals {
           client_secret_setting_name = "MICROSOFT_PROVIDER_AUTHENTICATION_SECRET"
           open_id_issuer             = nonsensitive(var.auth_settings.microsoft_entra.tenant_auth_endpoint)
         }
-        } : {
-        enabled = false
-        registration = {
-          client_id                  = null
-          client_secret_setting_name = null
-          open_id_issuer             = null
-        }
-      }
+      } : null
       custom_open_id_connect_providers = {
-        for name, provider in nonsensitive(var.auth_settings.custom_open_id_connect_providers) : name => {
+        for name in nonsensitive(keys(var.auth_settings.custom_open_id_connect_providers)) : name => {
           enabled = true
           registration = {
-            client_id = nonsensitive(provider.client_id)
+            client_id = nonsensitive(var.auth_settings.custom_open_id_connect_providers[name].client_id)
             client_credential = {
               method                     = "ClientSecretPost"
-              client_secret_setting_name = "${name}_AUTHENTICATION_SECRET"
+              client_secret_setting_name = "CUSTOM_OIDC_${name}_AUTHENTICATION_SECRET"
             }
             open_id_connect_configuration = {
-              well_known_open_id_configuration = nonsensitive(provider.well_known_open_id_configuration)
+              well_known_open_id_configuration = nonsensitive(var.auth_settings.custom_open_id_connect_providers[name].well_known_open_id_configuration)
             }
           }
         }
+        if nonsensitive(var.auth_settings.custom_open_id_connect_providers[name] != null)
       }
     }
     login = {
