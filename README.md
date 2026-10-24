@@ -141,8 +141,12 @@ auth_settings = {
 Entra and custom OIDC providers can be configured together. `default_provider`
 selects the login redirect: `microsoft_entra` (the default) selects Entra, and a
 custom provider's map key selects that provider. The selected provider must be
-configured when authentication is enabled. `microsoft_entra` is reserved and
-cannot be a custom provider name. Every configured provider requires its client
+configured when authentication is enabled. Custom provider names must be non-empty
+and contain only ASCII letters, digits, periods (`.`), and underscores (`_`), so
+they can also be used in the generated App Service setting names. Azure does not
+support hyphens in [custom OIDC provider names](https://learn.microsoft.com/azure/app-service/configure-authentication-provider-openid-connect).
+`microsoft_entra` and `azureactivedirectory` are reserved (case-insensitive) and
+cannot be custom provider names. Every configured provider requires its client
 ID, secret, and issuer/discovery URL, including when authentication is disabled.
 
 The module generates `MICROSOFT_PROVIDER_AUTHENTICATION_SECRET` for Entra and
@@ -511,7 +515,7 @@ Description: Controls App Service Authentication for the Function App. Provider 
 - `microsoft_entra.client_id` - (Required when `microsoft_entra` is set) The Microsoft Entra application client ID.
 - `microsoft_entra.client_secret` - (Required when `microsoft_entra` is set) The Microsoft Entra application client secret.
 - `microsoft_entra.tenant_auth_endpoint` - (Required when `microsoft_entra` is set) The tenant-specific Microsoft Entra authorization endpoint.
-- `custom_open_id_connect_providers.<key>` - (Required for each custom provider) The name of a custom OpenID Connect provider. `microsoft_entra` is reserved for the built-in provider.
+- `custom_open_id_connect_providers.<key>` - (Required for each custom provider) A non-empty provider name containing only ASCII letters, digits, periods (`.`), and underscores (`_`). Hyphens are not supported. `microsoft_entra` and `azureactivedirectory` are reserved (case-insensitive).
 - `custom_open_id_connect_providers.<key>.client_id` - (Required for each custom provider) The custom OpenID Connect application client ID.
 - `custom_open_id_connect_providers.<key>.client_secret` - (Required for each custom provider) The custom OpenID Connect application client secret.
 - `custom_open_id_connect_providers.<key>.well_known_open_id_configuration` - (Required for each custom provider) The well-known OpenID Connect configuration URL for the custom provider.

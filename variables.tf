@@ -66,7 +66,7 @@ Controls App Service Authentication for the Function App. Provider credentials a
 - `microsoft_entra.client_id` - (Required when `microsoft_entra` is set) The Microsoft Entra application client ID.
 - `microsoft_entra.client_secret` - (Required when `microsoft_entra` is set) The Microsoft Entra application client secret.
 - `microsoft_entra.tenant_auth_endpoint` - (Required when `microsoft_entra` is set) The tenant-specific Microsoft Entra authorization endpoint.
-- `custom_open_id_connect_providers.<key>` - (Required for each custom provider) The name of a custom OpenID Connect provider. `microsoft_entra` is reserved for the built-in provider.
+- `custom_open_id_connect_providers.<key>` - (Required for each custom provider) A non-empty provider name containing only ASCII letters, digits, periods (`.`), and underscores (`_`). Hyphens are not supported. `microsoft_entra` and `azureactivedirectory` are reserved (case-insensitive).
 - `custom_open_id_connect_providers.<key>.client_id` - (Required for each custom provider) The custom OpenID Connect application client ID.
 - `custom_open_id_connect_providers.<key>.client_secret` - (Required for each custom provider) The custom OpenID Connect application client secret.
 - `custom_open_id_connect_providers.<key>.well_known_open_id_configuration` - (Required for each custom provider) The well-known OpenID Connect configuration URL for the custom provider.
@@ -104,8 +104,17 @@ DESCRIPTION
   }
 
   validation {
-    condition     = var.auth_settings == null ? true : !contains([for name in keys(var.auth_settings.custom_open_id_connect_providers) : lower(name)], "microsoft_entra")
-    error_message = "microsoft_entra is reserved and cannot be used as a custom OpenID Connect provider name."
+    condition = var.auth_settings == null ? true : alltrue([
+      for name in keys(var.auth_settings.custom_open_id_connect_providers) : !contains(["microsoft_entra", "azureactivedirectory"], lower(name))
+    ])
+    error_message = "microsoft_entra and azureactivedirectory are reserved (case-insensitive) and cannot be used as custom OpenID Connect provider names."
+  }
+
+  validation {
+    condition = var.auth_settings == null ? true : alltrue([
+      for name in keys(var.auth_settings.custom_open_id_connect_providers) : can(regex("^[A-Za-z0-9._]+$", name))
+    ])
+    error_message = "Custom OpenID Connect provider names must be non-empty and contain only ASCII letters, digits, periods (.), and underscores (_). Hyphens are not supported."
   }
 }
 

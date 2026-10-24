@@ -140,8 +140,12 @@ auth_settings = {
 Entra and custom OIDC providers can be configured together. `default_provider`
 selects the login redirect: `microsoft_entra` (the default) selects Entra, and a
 custom provider's map key selects that provider. The selected provider must be
-configured when authentication is enabled. `microsoft_entra` is reserved and
-cannot be a custom provider name. Every configured provider requires its client
+configured when authentication is enabled. Custom provider names must be non-empty
+and contain only ASCII letters, digits, periods (`.`), and underscores (`_`), so
+they can also be used in the generated App Service setting names. Azure does not
+support hyphens in [custom OIDC provider names](https://learn.microsoft.com/azure/app-service/configure-authentication-provider-openid-connect).
+`microsoft_entra` and `azureactivedirectory` are reserved (case-insensitive) and
+cannot be custom provider names. Every configured provider requires its client
 ID, secret, and issuer/discovery URL, including when authentication is disabled.
 
 The module generates `MICROSOFT_PROVIDER_AUTHENTICATION_SECRET` for Entra and

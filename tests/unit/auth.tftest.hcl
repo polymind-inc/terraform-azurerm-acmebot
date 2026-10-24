@@ -357,3 +357,99 @@ run "configured_provider_requires_credentials_when_disabled" {
   }
   expect_failures = [var.auth_settings]
 }
+
+run "azure_active_directory_provider_name_is_reserved" {
+  command = plan
+  variables {
+    auth_settings = {
+      enabled          = true
+      default_provider = "AzureActiveDirectory"
+      custom_open_id_connect_providers = {
+        AzureActiveDirectory = {
+          client_id                        = "acmebot"
+          client_secret                    = "test-secret"
+          well_known_open_id_configuration = "https://sso.example.com/.well-known/openid-configuration"
+        }
+      }
+    }
+  }
+  expect_failures = [var.auth_settings]
+}
+
+run "custom_provider_name_cannot_contain_hyphens" {
+  command = plan
+  variables {
+    auth_settings = {
+      enabled          = true
+      default_provider = "key-cloak"
+      custom_open_id_connect_providers = {
+        key-cloak = {
+          client_id                        = "acmebot"
+          client_secret                    = "test-secret"
+          well_known_open_id_configuration = "https://sso.example.com/.well-known/openid-configuration"
+        }
+      }
+    }
+  }
+  expect_failures = [var.auth_settings]
+}
+
+run "custom_provider_name_cannot_be_empty_when_disabled" {
+  command = plan
+  variables {
+    auth_settings = {
+      enabled = false
+      custom_open_id_connect_providers = {
+        "" = {
+          client_id                        = "acmebot"
+          client_secret                    = "test-secret"
+          well_known_open_id_configuration = "https://sso.example.com/.well-known/openid-configuration"
+        }
+      }
+    }
+  }
+  expect_failures = [var.auth_settings]
+}
+
+run "custom_provider_name_cannot_contain_path_separators" {
+  command = plan
+  variables {
+    auth_settings = {
+      enabled          = true
+      default_provider = "key/cloak"
+      custom_open_id_connect_providers = {
+        "key/cloak" = {
+          client_id                        = "acmebot"
+          client_secret                    = "test-secret"
+          well_known_open_id_configuration = "https://sso.example.com/.well-known/openid-configuration"
+        }
+      }
+    }
+  }
+  expect_failures = [var.auth_settings]
+}
+
+run "custom_provider_name_supports_letters_digits_periods_and_underscores" {
+  command = plan
+  variables {
+    auth_settings = {
+      enabled          = true
+      default_provider = "Keycloak_2.0"
+      custom_open_id_connect_providers = {
+        "Keycloak_2.0" = {
+          client_id                        = "acmebot"
+          client_secret                    = "test-secret"
+          well_known_open_id_configuration = "https://sso.example.com/.well-known/openid-configuration"
+        }
+      }
+    }
+  }
+  assert {
+    condition = (
+      local.auth_settings_v2.redirect_to_provider == "Keycloak_2.0" &&
+      local.auth_settings_v2.identity_providers.custom_open_id_connect_providers["Keycloak_2.0"].registration.client_credential.client_secret_setting_name == "CUSTOM_OIDC_Keycloak_2.0_AUTHENTICATION_SECRET" &&
+      local.auth_app_settings["CUSTOM_OIDC_Keycloak_2.0_AUTHENTICATION_SECRET"] == "test-secret"
+    )
+    error_message = "Supported provider names must be preserved in the login redirect and generated secret reference."
+  }
+}
