@@ -161,11 +161,19 @@ locals {
     } : {},
   )
 
-  # The secret may be omitted while authentication is disabled; the setting is then
-  # left out instead of being written as an empty value.
-  auth_app_settings = var.auth_settings != null && var.auth_settings_client_secret != null ? {
-    "MICROSOFT_PROVIDER_AUTHENTICATION_SECRET" = var.auth_settings_client_secret
-  } : {}
+  auth_ad_app_settings = var.auth_settings == null ? {} : var.auth_settings.microsoft_entra == null ? {} : {
+    "MICROSOFT_PROVIDER_AUTHENTICATION_SECRET" = var.auth_settings.microsoft_entra.client_secret
+  }
+
+  auth_custom_oidc_app_settings = var.auth_settings == null ? {} : {
+    for name, provider in var.auth_settings.custom_open_id_connect_providers : "CUSTOM_OIDC_${name}_AUTHENTICATION_SECRET" => provider.client_secret
+    if provider != null
+  }
+
+  auth_app_settings = merge(
+    local.auth_ad_app_settings,
+    local.auth_custom_oidc_app_settings,
+  )
 
   azure_web_jobs_storage_identity_app_settings = merge(
     {
@@ -186,19 +194,37 @@ locals {
     local.auth_app_settings,
   )
 
-  auth_settings_v2 = var.auth_settings != null ? {
-    auth_enabled                  = var.auth_settings.enabled
-    require_authentication        = var.auth_settings.enabled
-    redirect_to_provider          = "azureactivedirectory"
+  # AVM uses this metadata in for_each. Declassify only non-secret attributes;
+  # client secrets stay sensitive in auth_app_settings and never enter this object.
+  auth_settings_v2 = nonsensitive(var.auth_settings != null) ? {
+    auth_enabled                  = nonsensitive(var.auth_settings.enabled)
+    require_authentication        = nonsensitive(var.auth_settings.enabled)
+    redirect_to_provider          = nonsensitive(var.auth_settings.enabled) ? nonsensitive(var.auth_settings.default_provider == "microsoft_entra" ? "azureactivedirectory" : var.auth_settings.default_provider) : null
     unauthenticated_client_action = "RedirectToLoginPage"
     identity_providers = {
-      azure_active_directory = {
+      azure_active_directory = nonsensitive(var.auth_settings.microsoft_entra != null) ? {
         enabled = true
         registration = {
-          client_id                  = var.auth_settings.active_directory.client_id
+          client_id                  = nonsensitive(var.auth_settings.microsoft_entra.client_id)
           client_secret_setting_name = "MICROSOFT_PROVIDER_AUTHENTICATION_SECRET"
-          open_id_issuer             = var.auth_settings.active_directory.tenant_auth_endpoint
+          open_id_issuer             = nonsensitive(var.auth_settings.microsoft_entra.tenant_auth_endpoint)
         }
+      } : null
+      custom_open_id_connect_providers = {
+        for name in nonsensitive(keys(var.auth_settings.custom_open_id_connect_providers)) : name => {
+          enabled = true
+          registration = {
+            client_id = nonsensitive(var.auth_settings.custom_open_id_connect_providers[name].client_id)
+            client_credential = {
+              method                     = "ClientSecretPost"
+              client_secret_setting_name = "CUSTOM_OIDC_${name}_AUTHENTICATION_SECRET"
+            }
+            open_id_connect_configuration = {
+              well_known_open_id_configuration = nonsensitive(var.auth_settings.custom_open_id_connect_providers[name].well_known_open_id_configuration)
+            }
+          }
+        }
+        if nonsensitive(var.auth_settings.custom_open_id_connect_providers[name] != null)
       }
     }
     login = {

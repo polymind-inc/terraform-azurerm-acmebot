@@ -14,7 +14,8 @@ Please include:
 
 This module accepts secrets through several inputs, including but not limited to:
 
-- `auth_settings_client_secret`
+- `auth_settings.microsoft_entra.client_secret`
+- `auth_settings.custom_open_id_connect_providers[*].client_secret`
 - `acmebot.dns_providers.*` credentials
 - `acmebot.external_account_binding.hmac_key`
 - `additional_app_settings` values

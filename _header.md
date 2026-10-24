@@ -113,6 +113,71 @@ Runnable examples are available under [`examples`](examples):
 - [`default`](examples/default) - A public quickstart with minimal networking, a system-assigned managed identity, a Key Vault target, and Azure DNS.
 - [`complete`](examples/complete) - A fully private deployment with VNET integration, Function App and Storage Account Private Endpoints, private DNS, a user-assigned managed identity, and a resource lock.
 
+## Authentication
+
+Omit `auth_settings` to leave App Service Authentication unconfigured. To
+explicitly disable it, set `auth_settings = { enabled = false }`; no provider
+credentials are required in that case.
+
+The [`complete`](examples/complete) example configures Microsoft Entra ID. For a
+custom OIDC provider such as Keycloak, use:
+
+```hcl
+auth_settings = {
+  enabled          = true
+  default_provider = "keycloak"
+
+  custom_open_id_connect_providers = {
+    keycloak = {
+      client_id                        = var.keycloak_client_id
+      client_secret                    = var.keycloak_client_secret
+      well_known_open_id_configuration = "https://sso.example.com/realms/example/.well-known/openid-configuration"
+    }
+  }
+}
+```
+
+Entra and custom OIDC providers can be configured together. `default_provider`
+selects the login redirect: `microsoft_entra` (the default) selects Entra, and a
+custom provider's map key selects that provider. The selected provider must be
+configured when authentication is enabled. Custom provider names must be non-empty
+and contain only ASCII letters, digits, periods (`.`), and underscores (`_`), so
+they can also be used in the generated App Service setting names. Azure does not
+support hyphens in [custom OIDC provider names](https://learn.microsoft.com/azure/app-service/configure-authentication-provider-openid-connect).
+`microsoft_entra` and `azureactivedirectory` are reserved (case-insensitive) and
+cannot be custom provider names. Every configured provider requires its client
+ID, secret, and issuer/discovery URL, including when authentication is disabled.
+
+The module generates `MICROSOFT_PROVIDER_AUTHENTICATION_SECRET` for Entra and
+`CUSTOM_OIDC_<provider-name>_AUTHENTICATION_SECRET` for each custom provider and
+wires their references internally. Credentials remain sensitive in app settings
+and Terraform state. Only provider names, client IDs, endpoints, and other
+non-secret authentication metadata are declassified for AVM's `for_each` use.
+
+### Migrating Existing Authentication Settings
+
+This is a breaking input change. Rename `auth_settings.active_directory` to
+`auth_settings.microsoft_entra`, move the former `auth_settings_client_secret`
+value into that object's `client_secret`, and remove the old top-level input:
+
+```hcl
+auth_settings = {
+  enabled = true
+  microsoft_entra = {
+    client_id            = var.client_id
+    client_secret        = var.client_secret
+    tenant_auth_endpoint = var.tenant_auth_endpoint
+  }
+}
+```
+
+Existing Entra configurations can omit `default_provider`; the module translates
+its default `microsoft_entra` to Azure's `azureactivedirectory` internally.
+
+Terraform 1.12 or later is now required. The existing module and current AVM
+dependencies rely on null-safe logical evaluation and write-only attributes
+that are unavailable with the former Terraform 1.10 minimum.
+
 ## Design Notes
 
 ### Core Inputs

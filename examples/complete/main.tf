@@ -272,13 +272,12 @@ module "acmebot" {
 
   auth_settings = {
     enabled = true
-    active_directory = {
+    microsoft_entra = {
       client_id            = azuread_application.default.client_id
+      client_secret        = azuread_application_password.default.value
       tenant_auth_endpoint = "https://login.microsoftonline.com/${data.azuread_client_config.current.tenant_id}/v2.0"
     }
   }
-
-  auth_settings_client_secret = azuread_application_password.default.value
 
   # Ensure private DNS resolution is in place before the Function App is deployed
   # so it can reach Storage and Key Vault through their private endpoints.

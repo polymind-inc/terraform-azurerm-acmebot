@@ -42,31 +42,79 @@ DESCRIPTION
 
 variable "auth_settings" {
   type = object({
-    enabled = bool
-    active_directory = object({
-      client_id            = string
-      tenant_auth_endpoint = string
-    })
-  })
-  description = <<DESCRIPTION
-Controls App Service Authentication for the Function App. The client secret is supplied separately via `var.auth_settings_client_secret`.
+    enabled          = bool
+    default_provider = optional(string, "microsoft_entra")
 
-- `enabled` - (Required) Whether App Service Authentication is enabled. When `true`, `var.auth_settings_client_secret` is required.
-- `active_directory.client_id` - (Required) The Microsoft Entra application client ID.
-- `active_directory.tenant_auth_endpoint` - (Required) The tenant-specific Microsoft Entra authorization endpoint.
+    microsoft_entra = optional(object({
+      client_id            = string
+      client_secret        = string
+      tenant_auth_endpoint = string
+    }), null)
+
+    custom_open_id_connect_providers = optional(map(object({
+      client_id                        = string
+      client_secret                    = string
+      well_known_open_id_configuration = string
+    })), {})
+  })
+  sensitive   = true
+  description = <<DESCRIPTION
+Controls App Service Authentication for the Function App. Provider credentials are sensitive and stored in Terraform state. The module generates the secret app settings and their references internally.
+
+- `enabled` - (Required) Whether App Service Authentication is enabled.
+- `default_provider` - (Optional) The default authentication provider. Defaults to `microsoft_entra`. Possible values are `microsoft_entra` or the name of a custom OpenID Connect provider.
+- `microsoft_entra.client_id` - (Required when `microsoft_entra` is set) The Microsoft Entra application client ID.
+- `microsoft_entra.client_secret` - (Required when `microsoft_entra` is set) The Microsoft Entra application client secret.
+- `microsoft_entra.tenant_auth_endpoint` - (Required when `microsoft_entra` is set) The tenant-specific Microsoft Entra authorization endpoint.
+- `custom_open_id_connect_providers.<key>` - (Required for each custom provider) A non-empty provider name containing only ASCII letters, digits, periods (`.`), and underscores (`_`). Hyphens are not supported. `microsoft_entra` and `azureactivedirectory` are reserved (case-insensitive).
+- `custom_open_id_connect_providers.<key>.client_id` - (Required for each custom provider) The custom OpenID Connect application client ID.
+- `custom_open_id_connect_providers.<key>.client_secret` - (Required for each custom provider) The custom OpenID Connect application client secret.
+- `custom_open_id_connect_providers.<key>.well_known_open_id_configuration` - (Required for each custom provider) The well-known OpenID Connect configuration URL for the custom provider.
+
 DESCRIPTION
   default     = null
-}
-
-variable "auth_settings_client_secret" {
-  type        = string
-  default     = null
-  sensitive   = true
-  description = "The Microsoft Entra application client secret used by App Service Authentication. Required when `var.auth_settings.enabled` is `true`. The value is wired to the Function App as the `MICROSOFT_PROVIDER_AUTHENTICATION_SECRET` app setting and stored in Terraform state."
 
   validation {
-    condition     = var.auth_settings == null ? true : (!var.auth_settings.enabled || var.auth_settings_client_secret != null)
-    error_message = "auth_settings_client_secret must be set when auth_settings.enabled is true."
+    condition = var.auth_settings == null ? true : (var.auth_settings.microsoft_entra == null ? true : (
+      var.auth_settings.microsoft_entra.client_id != null &&
+      var.auth_settings.microsoft_entra.client_secret != null &&
+      var.auth_settings.microsoft_entra.tenant_auth_endpoint != null
+    ))
+    error_message = "All three of var.auth_settings.microsoft_entra.client_id, var.auth_settings.microsoft_entra.client_secret, and var.auth_settings.microsoft_entra.tenant_auth_endpoint must be set when auth_settings.microsoft_entra is configured."
+  }
+
+  validation {
+    condition = var.auth_settings == null ? true : alltrue([
+      for provider in values(var.auth_settings.custom_open_id_connect_providers) : provider == null ? false : (
+        provider.client_id != null && provider.client_secret != null && provider.well_known_open_id_configuration != null
+      )
+    ])
+    error_message = "client_id, client_secret and well_known_open_id_configuration need to be provided for each custom OpenID Connect provider."
+  }
+
+  validation {
+    condition = var.auth_settings == null ? true : (
+      var.auth_settings.enabled ? (
+        var.auth_settings.default_provider == "microsoft_entra"
+        ? var.auth_settings.microsoft_entra != null
+        : contains(keys(var.auth_settings.custom_open_id_connect_providers), var.auth_settings.default_provider)
+      ) : true
+    )
+    error_message = "When authentication is enabled, auth_settings.default_provider must refer to a configured provider."
+  }
+
+  validation {
+    condition = var.auth_settings == null ? true : alltrue([
+      for name in keys(var.auth_settings.custom_open_id_connect_providers) : !contains(["microsoft_entra", "azureactivedirectory"], lower(name))
+    ])
+    error_message = "microsoft_entra and azureactivedirectory are reserved (case-insensitive) and cannot be used as custom OpenID Connect provider names."
+  }
+
+  validation {
+    condition = var.auth_settings == null ? true : alltrue([
+      for name in keys(var.auth_settings.custom_open_id_connect_providers) : can(regex("^[A-Za-z0-9._]+$", name))
+    ])
+    error_message = "Custom OpenID Connect provider names must be non-empty and contain only ASCII letters, digits, periods (.), and underscores (_). Hyphens are not supported."
   }
 }
 
