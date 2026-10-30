@@ -20,6 +20,8 @@ locals {
     data.azapi_resource.storage_user_assigned_identity[0].output.properties.principalId
   ) : nonsensitive(module.this.system_assigned_mi_principal_id)
 
+  storage_account_resource_group_id = coalesce(var.storage_account.parent_id, local.resource_group_id)
+
   storage_account_name = coalesce(
     var.storage_account.name,
     format(
@@ -59,6 +61,10 @@ locals {
     var.log_analytics_workspace.resource_id != null ? var.log_analytics_workspace.resource_id :
     local.create_log_analytics_workspace ? azapi_resource.log_analytics_workspace[0].id :
     data.azapi_resource.application_insights[0].output.properties.WorkspaceResourceId
+  )
+  log_analytics_resource_group_id = coalesce(
+    var.log_analytics_workspace.parent_id,
+    local.resource_group_id
   )
   application_insights_connection_string = local.create_application_insights ? azapi_resource.application_insights[0].output.properties.ConnectionString : data.azapi_resource.application_insights[0].output.properties.ConnectionString
 

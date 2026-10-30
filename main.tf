@@ -12,7 +12,7 @@ module "storage" {
 
   name             = local.storage_account_name
   location         = var.location
-  parent_id        = local.resource_group_id
+  parent_id        = local.storage_account_resource_group_id
   enable_telemetry = var.enable_telemetry
   tags             = var.storage_account.tags != null ? var.storage_account.tags : var.tags
 
@@ -66,7 +66,7 @@ resource "azapi_resource" "log_analytics_workspace" {
 
   name      = coalesce(var.log_analytics_workspace.name, "log-${var.name}")
   location  = var.location
-  parent_id = local.resource_group_id
+  parent_id = local.log_analytics_resource_group_id
   type      = "Microsoft.OperationalInsights/workspaces@2025-02-01"
   tags      = var.log_analytics_workspace.tags != null ? var.log_analytics_workspace.tags : var.tags
 

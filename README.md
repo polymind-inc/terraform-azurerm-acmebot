@@ -606,6 +606,7 @@ Default: `null`
 Description: Controls the Log Analytics workspace used by Application Insights.
 
 - `resource_id` - (Optional) The resource ID of an existing Log Analytics workspace to use for Application Insights. When set, this module does not create a workspace.
+- `parent_id` - (Optional) The resource ID of an existing resource group in which to create the Log Analytics workspace. Defaults to the resource group in `parent_id`.
 - `name` - (Optional) The name of the Log Analytics workspace. When unset, the module generates a CAF-aligned name using the `log` prefix.
 - `retention_in_days` - (Optional) The workspace retention period in days when the module creates the workspace. Defaults to `30`.
 - `tags` - (Optional) Tags to apply to the module-created Log Analytics workspace. When unset, `var.tags` is inherited.
@@ -615,6 +616,7 @@ Type:
 ```hcl
 object({
     resource_id       = optional(string, null)
+    parent_id         = optional(string, null)
     name              = optional(string, null)
     retention_in_days = optional(number, 30)
     tags              = optional(map(string), null)
@@ -843,6 +845,7 @@ Default: `false`
 Description: Controls the Storage Account used by the Function App deployment package.
 
 - `name` - (Optional) The name of the Storage Account. When unset, the module generates a deterministic globally unique name.
+- `parent_id` - (Optional) The resource ID of an existing resource group in which to create the Storage Account. Defaults to the resource group in `parent_id`.
 - `account_replication_type` - (Optional) The replication type for the Storage Account. Possible values are `LRS`, `GRS`, `RAGRS`, `ZRS`, `GZRS`, and `RAGZRS`. Defaults to `LRS`.
 - `default_to_oauth_authentication` - (Optional) Whether Azure portal data-plane access defaults to Microsoft Entra authorization. Defaults to `true`.
 - `infrastructure_encryption_enabled` - (Optional) Whether infrastructure encryption is enabled. Defaults to `true`.
@@ -872,6 +875,7 @@ Type:
 ```hcl
 object({
     name                              = optional(string, null)
+    parent_id                         = optional(string, null)
     account_replication_type          = optional(string, "LRS")
     default_to_oauth_authentication   = optional(bool, true)
     infrastructure_encryption_enabled = optional(bool, true)
