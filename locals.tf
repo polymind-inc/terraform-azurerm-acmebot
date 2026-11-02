@@ -38,6 +38,16 @@ locals {
     )
   )
 
+  # Microsoft.Web/serverfarms naming must be 2-60 characters.
+  service_plan_name = coalesce(
+    var.service_plan.name,
+    length(var.name) <= 56 ? "asp-${var.name}" : format(
+      "asp-%s-%s",
+      trim(substr(lower(var.name), 0, 49), "-"),
+      substr(md5("${local.subscription_id}/${local.resource_group_name}/${var.name}"), 0, 6),
+    )
+  )
+
   # Reads the blob/queue/table service URIs straight from the deployed account so
   # sovereign-cloud endpoint suffixes are honored without hard-coding them. This
   # relies on the storage AVM module exporting properties.primaryEndpoints in its
@@ -55,6 +65,16 @@ locals {
     var.application_insights.resource_id == null,
   )
   create_log_analytics_workspace = local.create_application_insights ? var.log_analytics_workspace.resource_id == null : false
+
+  # Microsoft.OperationalInsights/workspaces naming must be 2-63 characters.
+  log_analytics_workspace_name = coalesce(
+    var.log_analytics_workspace.name,
+    length(var.name) <= 59 ? "log-${var.name}" : format(
+      "log-%s-%s",
+      trim(substr(lower(var.name), 0, 52), "-"),
+      substr(md5("${local.subscription_id}/${local.resource_group_name}/${var.name}"), 0, 6),
+    )
+  )
   log_analytics_workspace_resource_id = (
     var.log_analytics_workspace.resource_id != null ? var.log_analytics_workspace.resource_id :
     local.create_log_analytics_workspace ? azapi_resource.log_analytics_workspace[0].id :

@@ -50,7 +50,7 @@ module "serverfarm" {
   source  = "Azure/avm-res-web-serverfarm/azurerm"
   version = "~> 2.0"
 
-  name             = coalesce(var.service_plan.name, "asp-${var.name}")
+  name             = local.service_plan_name
   location         = var.location
   parent_id        = local.resource_group_id
   enable_telemetry = var.enable_telemetry
@@ -64,7 +64,7 @@ module "serverfarm" {
 resource "azapi_resource" "log_analytics_workspace" {
   count = local.create_log_analytics_workspace ? 1 : 0
 
-  name      = coalesce(var.log_analytics_workspace.name, "log-${var.name}")
+  name      = local.log_analytics_workspace_name
   location  = var.location
   parent_id = local.resource_group_id
   type      = "Microsoft.OperationalInsights/workspaces@2025-02-01"
@@ -85,6 +85,7 @@ resource "azapi_resource" "log_analytics_workspace" {
 resource "azapi_resource" "application_insights" {
   count = local.create_application_insights ? 1 : 0
 
+  # Microsoft.Insights/components naming must be 2-260 characters.
   name      = coalesce(var.application_insights.name, "appi-${var.name}")
   location  = var.location
   parent_id = local.resource_group_id
