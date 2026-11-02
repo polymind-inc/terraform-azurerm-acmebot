@@ -182,7 +182,7 @@ that are unavailable with the former Terraform 1.10 minimum.
 
 ### Core Inputs
 
-- `name` is the Function App name. It must be 2-32 characters, contain only
+- `name` is the Function App name. It must be 2-60 characters, contain only
   letters, numbers, and hyphens, and start and end with a letter or number.
 - `parent_id` is the AVM-aligned deployment scope input and must be the resource
   ID of an existing resource group.
