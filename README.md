@@ -1044,7 +1044,7 @@ Version: ~> 2.0
 
 Source: Azure/avm-res-storage-storageaccount/azurerm
 
-Version: ~> 0.10.0
+Version: ~> 0.11.0
 
 ### <a name="module_this"></a> [this](#module\_this)
 
