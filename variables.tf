@@ -46,9 +46,10 @@ variable "auth_settings" {
     default_provider = optional(string, "microsoft_entra")
 
     microsoft_entra = optional(object({
-      client_id            = string
-      client_secret        = string
-      tenant_auth_endpoint = string
+      client_id                  = string
+      client_secret              = optional(string, null)
+      managed_identity_client_id = optional(string, null)
+      tenant_auth_endpoint       = string
     }), null)
 
     custom_open_id_connect_providers = optional(map(object({
@@ -59,12 +60,13 @@ variable "auth_settings" {
   })
   sensitive   = true
   description = <<DESCRIPTION
-Controls App Service Authentication for the Function App. Provider credentials are sensitive and stored in Terraform state. The module generates the secret app settings and their references internally.
+Controls App Service Authentication for the Function App. Provider credentials are sensitive and stored in Terraform state. The module generates authentication app settings and their references internally.
 
 - `enabled` - (Required) Whether App Service Authentication is enabled.
 - `default_provider` - (Optional) The default authentication provider. Defaults to `microsoft_entra`. Possible values are `microsoft_entra` or the name of a custom OpenID Connect provider.
 - `microsoft_entra.client_id` - (Required when `microsoft_entra` is set) The Microsoft Entra application client ID.
-- `microsoft_entra.client_secret` - (Required when `microsoft_entra` is set) The Microsoft Entra application client secret.
+- `microsoft_entra.client_secret` - (Optional) The Microsoft Entra application client secret. Set exactly one of this and `managed_identity_client_id` when `microsoft_entra` is configured.
+- `microsoft_entra.managed_identity_client_id` - (Optional) The client ID of an attached user-assigned managed identity used by Easy Auth instead of a client secret. The application registration must trust this identity through a federated identity credential. Independent of the Acmebot and Storage identity selections. Supported for workforce configurations.
 - `microsoft_entra.tenant_auth_endpoint` - (Required when `microsoft_entra` is set) The tenant-specific Microsoft Entra authorization endpoint.
 - `custom_open_id_connect_providers.<key>` - (Required for each custom provider) A non-empty provider name containing only ASCII letters, digits, periods (`.`), and underscores (`_`). Hyphens are not supported. `microsoft_entra` and `azureactivedirectory` are reserved (case-insensitive).
 - `custom_open_id_connect_providers.<key>.client_id` - (Required for each custom provider) The custom OpenID Connect application client ID.
@@ -77,10 +79,30 @@ DESCRIPTION
   validation {
     condition = var.auth_settings == null ? true : (var.auth_settings.microsoft_entra == null ? true : (
       var.auth_settings.microsoft_entra.client_id != null &&
-      var.auth_settings.microsoft_entra.client_secret != null &&
       var.auth_settings.microsoft_entra.tenant_auth_endpoint != null
     ))
-    error_message = "All three of var.auth_settings.microsoft_entra.client_id, var.auth_settings.microsoft_entra.client_secret, and var.auth_settings.microsoft_entra.tenant_auth_endpoint must be set when auth_settings.microsoft_entra is configured."
+    error_message = "client_id and tenant_auth_endpoint must be set when auth_settings.microsoft_entra is configured."
+  }
+
+  validation {
+    condition = var.auth_settings == null ? true : var.auth_settings.microsoft_entra == null ? true : (
+      (var.auth_settings.microsoft_entra.client_secret != null) != (var.auth_settings.microsoft_entra.managed_identity_client_id != null)
+    )
+    error_message = "Set exactly one of auth_settings.microsoft_entra.client_secret and auth_settings.microsoft_entra.managed_identity_client_id."
+  }
+
+  validation {
+    condition = var.auth_settings == null ? true : var.auth_settings.microsoft_entra == null ? true : (
+      var.auth_settings.microsoft_entra.managed_identity_client_id == null ? true : can(regex("^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$", var.auth_settings.microsoft_entra.managed_identity_client_id))
+    )
+    error_message = "auth_settings.microsoft_entra.managed_identity_client_id must be a valid client ID UUID."
+  }
+
+  validation {
+    condition = var.auth_settings == null ? true : var.auth_settings.microsoft_entra == null ? true : (
+      var.auth_settings.microsoft_entra.managed_identity_client_id == null || length(var.managed_identities.user_assigned_resource_ids) > 0
+    )
+    error_message = "auth_settings.microsoft_entra.managed_identity_client_id requires an identity attached through managed_identities.user_assigned_resource_ids."
   }
 
   validation {
@@ -240,13 +262,13 @@ DESCRIPTION
 
 variable "additional_app_settings" {
   type        = map(string)
-  description = "Additional application settings to set on the Function App. Keys prefixed with `Acmebot__`, keys prefixed with `Acmebot:`, keys prefixed with `AzureWebJobsStorage`, and `MICROSOFT_PROVIDER_AUTHENTICATION_SECRET` are reserved by this module."
+  description = "Additional application settings to set on the Function App. Keys prefixed with `Acmebot__`, `Acmebot:`, or `AzureWebJobsStorage`, and the exact keys `MICROSOFT_PROVIDER_AUTHENTICATION_SECRET` and `OVERRIDE_USE_MI_FIC_ASSERTION_CLIENTID`, are reserved by this module."
   default     = {}
   sensitive   = true
 
   validation {
     condition = alltrue([
-      for key in keys(var.additional_app_settings) : !startswith(key, "Acmebot__") && !startswith(key, "Acmebot:") && !startswith(key, "AzureWebJobsStorage") && key != "MICROSOFT_PROVIDER_AUTHENTICATION_SECRET"
+      for key in keys(var.additional_app_settings) : !startswith(key, "Acmebot__") && !startswith(key, "Acmebot:") && !startswith(key, "AzureWebJobsStorage") && key != "MICROSOFT_PROVIDER_AUTHENTICATION_SECRET" && key != "OVERRIDE_USE_MI_FIC_ASSERTION_CLIENTID"
     ])
     error_message = "additional_app_settings cannot override reserved Acmebot, AzureWebJobsStorage, or authentication secret settings."
   }

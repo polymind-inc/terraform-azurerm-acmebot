@@ -2,11 +2,15 @@
 
 ## Unit tests
 
-Unit tests use the native `terraform test` framework with mocked providers. They focus on variable validation and plan-time wiring, and do not require Azure credentials.
+Unit tests use the native `terraform test` framework with mocked providers. They cover variable validation, plan-time wiring, and identity postconditions with a mocked apply, and do not require Azure credentials.
 
 Authentication coverage includes Entra-only, custom-OIDC-only, combined providers,
 omitted settings, explicit disablement, invalid provider selection and credentials,
-and sensitive client secrets that are unknown until apply. Run the suite with
+and sensitive client secrets that are unknown until apply. Secretless Entra
+coverage includes MI app-setting wiring, coexistence with custom OIDC, independent
+Acmebot/Storage identities, exclusive credential selection, UUID validation,
+attached-identity validation, reserved settings, and an MI client ID unknown until
+apply. Run the suite with
 Terraform 1.12 as well as the CI version to check null guards and AVM `for_each`
 compatibility at the supported minimum version.
 

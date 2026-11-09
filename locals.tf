@@ -181,7 +181,11 @@ locals {
     } : {},
   )
 
-  auth_ad_app_settings = var.auth_settings == null ? {} : var.auth_settings.microsoft_entra == null ? {} : {
+  easy_auth_managed_identity_client_id = nonsensitive(var.auth_settings == null ? null : var.auth_settings.microsoft_entra == null ? null : var.auth_settings.microsoft_entra.managed_identity_client_id)
+
+  auth_ad_app_settings = var.auth_settings == null ? {} : var.auth_settings.microsoft_entra == null ? {} : local.easy_auth_managed_identity_client_id != null ? {
+    "OVERRIDE_USE_MI_FIC_ASSERTION_CLIENTID" = local.easy_auth_managed_identity_client_id
+    } : {
     "MICROSOFT_PROVIDER_AUTHENTICATION_SECRET" = var.auth_settings.microsoft_entra.client_secret
   }
 
@@ -226,7 +230,7 @@ locals {
         enabled = true
         registration = {
           client_id                  = nonsensitive(var.auth_settings.microsoft_entra.client_id)
-          client_secret_setting_name = "MICROSOFT_PROVIDER_AUTHENTICATION_SECRET"
+          client_secret_setting_name = local.easy_auth_managed_identity_client_id != null ? "OVERRIDE_USE_MI_FIC_ASSERTION_CLIENTID" : "MICROSOFT_PROVIDER_AUTHENTICATION_SECRET"
           open_id_issuer             = nonsensitive(var.auth_settings.microsoft_entra.tenant_auth_endpoint)
         }
       } : null
