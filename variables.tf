@@ -4,8 +4,8 @@ variable "name" {
   nullable    = false
 
   validation {
-    condition     = can(regex("^[A-Za-z0-9][A-Za-z0-9-]*[A-Za-z0-9]$", var.name)) && length(var.name) >= 2 && length(var.name) <= 32
-    error_message = "name must be 2-32 characters; contain only letters, numbers, and hyphens; and start and end with a letter or number."
+    condition     = can(regex("^[A-Za-z0-9][A-Za-z0-9-]*[A-Za-z0-9]$", var.name)) && length(var.name) >= 2 && length(var.name) <= 60
+    error_message = "name must be 2-60 characters; contain only letters, numbers, and hyphens; and start and end with a letter or number."
   }
 }
 
