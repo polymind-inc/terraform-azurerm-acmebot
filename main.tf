@@ -243,11 +243,10 @@ resource "azapi_resource" "deployment" {
   ]
 }
 
-# The client ID is only resolvable after the identities are attached, so this is
-# checked against the deployed Function App rather than in variable validation.
-# The read is unconditional because the client ID may be unknown during planning
-# when the identity is created alongside this module, which would leave a
-# client-ID-based count unknown.
+# Acmebot and Easy Auth client IDs are checked against the deployed Function App
+# after the identities are attached. The read is unconditional because either ID
+# may be unknown during planning when an identity is created alongside this
+# module, which would leave a client-ID-based count unknown.
 data "azapi_resource" "function_app_identity" {
   type                   = "Microsoft.Web/sites@2025-03-01"
   resource_id            = module.this.resource_id
@@ -260,6 +259,14 @@ data "azapi_resource" "function_app_identity" {
         lower(local.acmebot_managed_identity_client_id),
       )
       error_message = "acmebot.managed_identity_client_id must match the client ID of an identity attached through managed_identities.user_assigned_resource_ids."
+    }
+
+    postcondition {
+      condition = local.easy_auth_managed_identity_client_id == null ? true : contains(
+        [for identity in values(try(self.output.identity.userAssignedIdentities, {})) : lower(identity.clientId)],
+        lower(local.easy_auth_managed_identity_client_id),
+      )
+      error_message = "auth_settings.microsoft_entra.managed_identity_client_id must match the client ID of an identity attached through managed_identities.user_assigned_resource_ids."
     }
   }
 }

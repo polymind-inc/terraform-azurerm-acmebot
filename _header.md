@@ -146,13 +146,92 @@ they can also be used in the generated App Service setting names. Azure does not
 support hyphens in [custom OIDC provider names](https://learn.microsoft.com/azure/app-service/configure-authentication-provider-openid-connect).
 `microsoft_entra` and `azureactivedirectory` are reserved (case-insensitive) and
 cannot be custom provider names. Every configured provider requires its client
-ID, secret, and issuer/discovery URL, including when authentication is disabled.
+ID and issuer/discovery URL, including when authentication is disabled. Custom
+OIDC providers require a client secret; Entra requires exactly one of a client
+secret and a managed identity client ID.
 
-The module generates `MICROSOFT_PROVIDER_AUTHENTICATION_SECRET` for Entra and
+For client-secret authentication, the module generates
+`MICROSOFT_PROVIDER_AUTHENTICATION_SECRET` for Entra and
 `CUSTOM_OIDC_<provider-name>_AUTHENTICATION_SECRET` for each custom provider and
 wires their references internally. Credentials remain sensitive in app settings
 and Terraform state. Only provider names, client IDs, endpoints, and other
 non-secret authentication metadata are declassified for AVM's `for_each` use.
+
+### Secretless Microsoft Entra Authentication
+
+For workforce configurations, set
+`auth_settings.microsoft_entra.managed_identity_client_id` instead of
+`client_secret`. Existing client-secret configurations require no changes.
+The module sets `OVERRIDE_USE_MI_FIC_ASSERTION_CLIENTID` to the identity's client
+ID, points Easy Auth at this setting, and omits
+`MICROSOFT_PROVIDER_AUTHENTICATION_SECRET`. Both setting names are reserved and
+cannot be supplied through `additional_app_settings`.
+
+Create a user-assigned identity, attach it through
+`managed_identities.user_assigned_resource_ids`, and configure the **application
+registration** to trust it through a federated identity credential. The identity
+and application registration must belong to the same tenant. These resources
+are managed by the caller; this module does not require the AzureAD provider.
+
+For example, with an existing `azuread_application.example` and resource group,
+create a dedicated identity and its credential in the calling configuration:
+
+```hcl
+resource "azurerm_user_assigned_identity" "easy_auth" {
+  name                = "id-acmebot-easy-auth"
+  location            = azurerm_resource_group.example.location
+  resource_group_name = azurerm_resource_group.example.name
+}
+
+resource "azuread_application_federated_identity_credential" "easy_auth" {
+  application_id = azuread_application.example.id
+  display_name   = "acmebot-easy-auth"
+  audiences      = ["api://AzureADTokenExchange"]
+  issuer         = "https://login.microsoftonline.com/${var.tenant_id}/v2.0"
+  subject        = azurerm_user_assigned_identity.easy_auth.principal_id
+}
+```
+
+Add the following arguments to the Acmebot module call, alongside its required
+inputs. Preserve any other user-assigned identities that the Function App needs:
+
+```hcl
+managed_identities = {
+  user_assigned_resource_ids = [azurerm_user_assigned_identity.easy_auth.id]
+}
+
+auth_settings = {
+  enabled = true
+  microsoft_entra = {
+    client_id                  = azuread_application.example.client_id
+    tenant_auth_endpoint       = "https://login.microsoftonline.com/${var.tenant_id}/v2.0"
+    managed_identity_client_id = azurerm_user_assigned_identity.easy_auth.client_id
+  }
+}
+
+depends_on = [azuread_application_federated_identity_credential.easy_auth]
+```
+
+The federated credential's `subject` uses the identity's **principal ID**; the
+module input uses its **client ID**, not the application registration's client
+ID. The module checks that this client ID matches an identity attached to the
+Function App, deferring the check until apply when necessary. Easy Auth's
+identity selection is independent of `acmebot.managed_identity_client_id` and
+`storage_managed_identity`; it does not change either selection. Assign this
+dedicated identity only to the Function App that uses this application registration.
+
+This example targets Azure public cloud. See Microsoft's
+[federated identity credential instructions](https://learn.microsoft.com/entra/workload-id/workload-identity-federation-config-app-trust-managed-identity)
+for cloud-specific issuers and audiences. The
+[Easy Auth instructions](https://learn.microsoft.com/azure/app-service/configure-authentication-provider-aad#use-a-managed-identity-instead-of-a-secret)
+also prescribe a slot-sticky setting. This module targets Flex Consumption,
+which currently does not support deployment slots; it does not configure slot
+stickiness. Switching the module to MI stops including the secret app setting
+in its configuration. AVM manages app settings through an AzAPI update resource,
+so do not rely on omission to delete a previously deployed setting. Verify a
+fresh sign-in, then explicitly remove the old secret app setting and the password
+on the Entra application. Secrets also remain in historical Terraform state
+snapshots until those snapshots are removed through your state retention process.
 
 ### Migrating Existing Authentication Settings
 
