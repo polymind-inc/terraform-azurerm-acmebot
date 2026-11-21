@@ -8,7 +8,7 @@ resource "random_string" "deployment_container_suffix" {
 
 module "storage" {
   source  = "Azure/avm-res-storage-storageaccount/azurerm"
-  version = "~> 0.10.0"
+  version = "~> 0.11.0"
 
   name             = local.storage_account_name
   location         = var.location
@@ -113,7 +113,7 @@ data "azapi_resource" "application_insights" {
 
 module "this" {
   source  = "Azure/avm-res-web-site/azurerm"
-  version = "~> 0.24.1"
+  version = "~> 0.25.0"
 
   name             = var.name
   location         = var.location
